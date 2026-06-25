@@ -1,0 +1,17 @@
+{
+  "name": "voxel-builder-server",
+  "version": "1.0.0",
+  "description": "Multiplayer server for Voxel Builder",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "uuid": "^9.0.0",
+    "ws": "^8.16.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.0"
+  }
+}

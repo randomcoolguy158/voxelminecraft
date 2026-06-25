@@ -1,0 +1,2600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voxel Builder - Night Zombies Update</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #87CEEB; font-family: sans-serif; user-select: none; }
+
+        /* ===================== TITLE SCREEN ===================== */
+        #title-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(180deg, rgba(10,14,28,0.88) 0%, rgba(20,30,55,0.82) 60%, rgba(10,14,28,0.88) 100%);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 200; cursor: default;
+        }
+        #title-logo {
+            font-family: 'Courier New', monospace;
+            font-size: clamp(36px, 7vw, 80px);
+            font-weight: 900;
+            letter-spacing: 6px;
+            color: #ffe033;
+            text-shadow: 3px 3px 0 #8a6a00, 6px 6px 0 #4a3900, 0 0 40px rgba(255,200,0,0.35);
+            text-align: center;
+            margin-bottom: 6px;
+            animation: logoPulse 3s ease-in-out infinite;
+        }
+        @keyframes logoPulse {
+            0%, 100% { text-shadow: 3px 3px 0 #8a6a00, 6px 6px 0 #4a3900, 0 0 40px rgba(255,200,0,0.35); }
+            50%       { text-shadow: 3px 3px 0 #8a6a00, 6px 6px 0 #4a3900, 0 0 70px rgba(255,200,0,0.65); }
+        }
+        #title-edition {
+            font-family: 'Courier New', monospace;
+            font-size: 14px; letter-spacing: 3px; color: #88ddaa;
+            text-transform: uppercase; margin-bottom: 10px;
+        }
+        #title-tagline {
+            font-size: 13px; color: #778899; margin-bottom: 50px; letter-spacing: 1px;
+        }
+        #title-buttons { display: flex; flex-direction: column; gap: 14px; width: min(340px, 80vw); }
+        .title-btn {
+            padding: 13px 20px; font-size: 16px;
+            font-family: 'Courier New', monospace; font-weight: bold;
+            background: #2e3440; color: #d8dee9;
+            border: 2px solid #4c566a; cursor: pointer;
+            text-transform: uppercase; letter-spacing: 2px;
+            transition: background 0.12s, border-color 0.12s, transform 0.06s, color 0.12s;
+            outline: none; text-align: center;
+        }
+        .title-btn:hover:not(:disabled) { background: #3b4252; border-color: #81a1c1; color: #eceff4; transform: scale(1.02); }
+        .title-btn:active:not(:disabled) { transform: scale(0.98); }
+        .title-btn:disabled { background: #252a35; color: #4c566a; border-color: #333; cursor: not-allowed; }
+        .title-btn.primary { background: #2d4a1e; border-color: #5a9e35; color: #aef177; }
+        .title-btn.primary:hover { background: #3a6128; border-color: #7acc44; color: #c8ff88; }
+        .title-btn.danger { background: #3d1a1a; border-color: #883333; color: #ff8888; }
+        .title-btn.danger:hover:not(:disabled) { background: #4d2222; border-color: #bb4444; }
+        #title-save-info {
+            margin-top: 6px; font-size: 11px; color: #556677;
+            text-align: center; font-family: 'Courier New', monospace;
+        }
+        #title-footer {
+            position: absolute; bottom: 28px;
+            display: flex; flex-direction: column; align-items: center; gap: 6px;
+        }
+        #title-controls-hint { font-size: 11px; color: #445566; text-align: center; line-height: 1.9; }
+        #title-version { font-size: 10px; color: #334455; letter-spacing: 1px; }
+        .title-divider { width: 200px; height: 1px; background: linear-gradient(90deg, transparent, #334, transparent); margin: 14px 0; }
+        /* ===================== END TITLE SCREEN ===================== */
+
+        /* ===================== PAUSE MENU ===================== */
+        #pause-menu {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.58);
+            backdrop-filter: blur(3px);
+            -webkit-backdrop-filter: blur(3px);
+            display: none; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 100;
+        }
+        #pause-title {
+            font-family: 'Courier New', monospace;
+            font-size: clamp(26px, 4.5vw, 50px);
+            font-weight: 900;
+            letter-spacing: 10px;
+            color: #eceff4;
+            text-shadow: 2px 2px 0 #2e3440, 0 0 28px rgba(200,220,255,0.18);
+            margin-bottom: 10px;
+        }
+        #pause-subtitle {
+            font-family: 'Courier New', monospace;
+            font-size: 11px; letter-spacing: 3px; color: #4c566a;
+            text-transform: uppercase; margin-bottom: 44px;
+        }
+        #pause-buttons {
+            display: flex; flex-direction: column; gap: 13px; width: min(320px, 80vw);
+        }
+        .pause-btn {
+            padding: 12px 20px; font-size: 15px;
+            font-family: 'Courier New', monospace; font-weight: bold;
+            background: #2e3440; color: #d8dee9;
+            border: 2px solid #4c566a; cursor: pointer;
+            text-transform: uppercase; letter-spacing: 2px;
+            transition: background 0.12s, border-color 0.12s, transform 0.06s, color 0.12s;
+            outline: none; text-align: center;
+        }
+        .pause-btn:hover { background: #3b4252; border-color: #81a1c1; color: #eceff4; transform: scale(1.02); }
+        .pause-btn:active { transform: scale(0.98); }
+        .pause-btn.primary { background: #2d4a1e; border-color: #5a9e35; color: #aef177; }
+        .pause-btn.primary:hover { background: #3a6128; border-color: #7acc44; color: #c8ff88; }
+        .pause-btn.danger { background: #3d1a1a; border-color: #883333; color: #ff8888; }
+        .pause-btn.danger:hover { background: #4d2222; border-color: #bb4444; }
+        /* ===================== END PAUSE MENU ===================== */
+
+        /* ===================== SETTINGS MENU ===================== */
+        #settings-menu {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(6,9,18,0.94);
+            display: none; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 210; /* above title screen */
+            overflow-y: auto; padding: 20px 0;
+            box-sizing: border-box;
+        }
+        #settings-panel {
+            width: min(480px, 88vw);
+            background: rgba(22,28,44,0.98);
+            border: 2px solid #3b4252;
+            border-radius: 8px;
+            padding: 28px 30px 24px;
+            color: #d8dee9;
+            font-family: 'Courier New', monospace;
+        }
+        #settings-panel h1 {
+            font-size: 20px; letter-spacing: 7px; color: #ffe033;
+            text-align: center; margin: 0 0 26px 0;
+            text-shadow: 2px 2px 0 #6a5000;
+        }
+        .settings-section-title {
+            font-size: 10px; letter-spacing: 4px; color: #81a1c1;
+            text-transform: uppercase; margin: 22px 0 12px 0;
+            border-bottom: 1px solid #2e3440; padding-bottom: 7px;
+        }
+        .settings-row {
+            display: flex; justify-content: space-between; align-items: center;
+            margin: 11px 0; gap: 14px;
+        }
+        .settings-label {
+            font-size: 13px; color: #c8d0e0; min-width: 130px; flex-shrink: 0;
+        }
+        .settings-value {
+            font-size: 12px; color: #88c0d0; min-width: 52px; text-align: right; flex-shrink: 0;
+        }
+        .settings-slider {
+            -webkit-appearance: none; appearance: none;
+            flex: 1; height: 4px; min-width: 80px;
+            background: #3b4252; border-radius: 2px; outline: none; cursor: pointer;
+        }
+        .settings-slider::-webkit-slider-thumb {
+            -webkit-appearance: none; width: 15px; height: 15px; border-radius: 50%;
+            background: #81a1c1; cursor: pointer; border: 2px solid #1a2030;
+            transition: background 0.15s;
+        }
+        .settings-slider::-webkit-slider-thumb:hover { background: #aabdd4; }
+        .settings-slider::-moz-range-thumb {
+            width: 15px; height: 15px; border-radius: 50%;
+            background: #81a1c1; cursor: pointer; border: 2px solid #1a2030;
+        }
+        .settings-hint {
+            font-size: 10px; color: #4c566a; text-align: center; margin-top: 4px;
+            letter-spacing: 0.5px;
+        }
+        /* Keybind rows */
+        .keybind-row {
+            display: flex; justify-content: space-between; align-items: center;
+            margin: 8px 0;
+        }
+        .keybind-label { font-size: 12px; color: #b0bac8; }
+        .keybind-btn {
+            min-width: 100px; padding: 6px 12px;
+            background: #2a3040; border: 1px solid #4c566a;
+            color: #eceff4; font-family: 'Courier New', monospace;
+            font-size: 12px; font-weight: bold; cursor: pointer; border-radius: 3px;
+            text-align: center; letter-spacing: 1px;
+            transition: background 0.1s, border-color 0.1s, color 0.1s;
+        }
+        .keybind-btn:hover:not(.listening) { background: #3b4252; border-color: #81a1c1; }
+        .keybind-btn.listening {
+            background: #0e2010; border-color: #5a9e35; color: #aef177;
+            animation: keybindBlink 0.7s ease-in-out infinite;
+        }
+        @keyframes keybindBlink { 0%,100%{opacity:1} 50%{opacity:0.45} }
+        .keybind-reset-btn {
+            background: none; border: none; color: #4c566a; font-family: 'Courier New', monospace;
+            font-size: 10px; cursor: pointer; padding: 4px 6px; letter-spacing: 1px;
+            transition: color 0.1s;
+        }
+        .keybind-reset-btn:hover { color: #aaa; }
+        #settings-back-btn {
+            display: block; width: 100%; margin-top: 24px;
+            padding: 11px; background: #2a3040; border: 2px solid #4c566a;
+            color: #d8dee9; font-family: 'Courier New', monospace;
+            font-size: 13px; font-weight: bold; letter-spacing: 3px;
+            text-transform: uppercase; cursor: pointer; border-radius: 4px;
+            transition: background 0.12s, border-color 0.12s, color 0.12s;
+            outline: none;
+        }
+        #settings-back-btn:hover { background: #3b4252; border-color: #81a1c1; color: #eceff4; }
+        /* ===================== END SETTINGS MENU ===================== */
+
+        /* ===================== SAVE NOTIFICATION ===================== */
+        #save-notification {
+            position: absolute; bottom: 90px; right: 20px;
+            background: rgba(10,25,10,0.85); color: #88ff88;
+            padding: 8px 18px; border-radius: 4px;
+            border: 1px solid #44aa44; font-size: 13px;
+            font-family: 'Courier New', monospace;
+            z-index: 5; pointer-events: none; display: none;
+            transition: opacity 0.6s;
+        }
+
+        #crosshair {
+            position: absolute; top: 50%; left: 50%; width: 20px; height: 20px;
+            transform: translate(-50%, -50%); pointer-events: none; z-index: 5;
+        }
+        #crosshair::before, #crosshair::after {
+            content: ''; position: absolute; background: white;
+        }
+        #crosshair::before { top: 9px; left: 0; width: 20px; height: 2px; }
+        #crosshair::after { top: 0; left: 9px; width: 2px; height: 20px; }
+
+        #instructions {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6); color: white; display: none;
+            flex-direction: column; justify-content: center; align-items: center; cursor: pointer;
+            z-index: 10;
+        }
+        #instructions h1 { font-family: 'Courier New', monospace; color: #ffe033; }
+        #instructions p  { max-width: 480px; text-align: center; }
+
+        #mining-warning {
+            position: absolute; top: 58%; left: 50%; transform: translateX(-50%);
+            color: #ff4444; font-size: 13px; font-weight: bold; text-shadow: 1px 1px 2px black;
+            display: none; z-index: 5;
+        }
+
+        #sleep-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: black; opacity: 0; pointer-events: none; z-index: 20;
+            transition: opacity 1s ease-in-out;
+        }
+
+        /* ===================== CROUCH INDICATOR ===================== */
+        #crouch-indicator {
+            position: absolute; bottom: 88px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.55); color: #aaddff;
+            padding: 3px 12px; border-radius: 4px;
+            border: 1px solid rgba(100,160,220,0.35); font-size: 11px;
+            font-family: 'Courier New', monospace; letter-spacing: 2px;
+            z-index: 5; pointer-events: none; display: none;
+        }
+        /* ===================== END CROUCH INDICATOR ===================== */
+
+        #hud-container {
+            position: absolute; top: 20px; left: 20px; display: flex; flex-direction: column; gap: 8px; z-index: 5;
+            background: rgba(0,0,0,0.4); padding: 10px 14px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2);
+        }
+        .hud-row { display: flex; gap: 4px; align-items: center; }
+        .hud-title { color: #aaa; font-size: 10px; font-weight: bold; width: 50px; text-transform: uppercase; }
+
+        #hud-save-btn {
+            position: absolute; top: 20px; right: 20px;
+            background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.2);
+            color: #aaffaa; padding: 7px 13px; border-radius: 5px; cursor: pointer;
+            font-size: 12px; font-family: 'Courier New', monospace;
+            z-index: 5; display: none; transition: background 0.15s;
+        }
+        #hud-save-btn:hover { background: rgba(60,120,60,0.6); }
+
+        #music-toggle {
+            position: absolute; top: 58px; right: 20px;
+            background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.25);
+            color: white; padding: 7px 13px; border-radius: 5px; cursor: pointer;
+            font-size: 13px; z-index: 5; transition: background 0.15s; display: none;
+        }
+        #music-toggle:hover { background: rgba(255,255,255,0.15); }
+        #music-toggle.muted { color: #ff5555; border-color: rgba(255,85,85,0.4); }
+
+        #now-playing {
+            position: absolute; top: 100px; right: 20px;
+            background: rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.1);
+            color: #ffdd88; padding: 5px 10px; border-radius: 4px;
+            font-size: 11px; z-index: 5; display: none; pointer-events: none;
+            transition: opacity 0.8s;
+        }
+
+        .heart {
+            width: 14px; height: 14px; background: #ff2244; position: relative;
+            transform: rotate(-45deg); display: inline-block; margin: 3px 5px; transition: background 0.2s;
+        }
+        .heart::before, .heart::after {
+            content: ""; width: 14px; height: 14px; background: #ff2244;
+            border-radius: 50%; position: absolute; transition: background 0.2s;
+        }
+        .heart::before { top: -7px; left: 0; }
+        .heart::after  { top: 0; left: 7px; }
+        .heart.empty { background: #44111a; }
+        .heart.empty::before, .heart.empty::after { background: #44111a; }
+        .heart.invincible { background: #ffcc00 !important; }
+        .heart.invincible::before, .heart.invincible::after { background: #ffcc00 !important; }
+
+        .hunger-bar {
+            width: 12px; height: 14px; background: #a05a2c; position: relative;
+            display: inline-block; margin: 0 4px; border-radius: 2px; border-top-right-radius: 5px;
+        }
+        .hunger-bar::after { content: ''; position: absolute; top: -3px; left: 4px; width: 4px; height: 4px; background: #d7a15c; border-radius: 50%; }
+        .hunger-bar.empty { background: #2b1a10; }
+        .hunger-bar.empty::after { background: #2b1a10; }
+
+        #hotbar {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            display: flex; background: rgba(0, 0, 0, 0.6); padding: 6px;
+            border-radius: 5px; border: 2px solid #333; pointer-events: none; z-index: 5;
+        }
+        .slot {
+            width: 56px; height: 56px; margin: 0 4px; background: rgba(255,255,255,0.05);
+            border: 2px solid #555; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; color: white; position: relative;
+            font-size: 10px; font-weight: bold; text-shadow: 1px 1px 2px black;
+            cursor: pointer; pointer-events: auto;
+        }
+        .slot.active { border-color: #fff; background: rgba(255,255,255,0.25); }
+        #hotbar .slot { pointer-events: none; }
+        .block-icon { width: 20px; height: 20px; border-radius: 3px; margin-bottom: 2px; border: 1px solid rgba(0,0,0,0.4); display: none; }
+        .count { position: absolute; bottom: 2px; right: 4px; font-size: 11px; display: none; }
+        .key-bind { position: absolute; top: 2px; left: 4px; font-size: 8px; color: #aaa; }
+        .label { text-align: center; max-width: 90%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        .modal-ui {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 420px; max-height: 90vh; overflow-y: auto; background: rgba(30, 30, 30, 0.95);
+            border: 3px solid #555; border-radius: 8px; color: white; padding: 20px; display: none; z-index: 15;
+            box-shadow: 0px 0px 20px rgba(0,0,0,0.8);
+        }
+        .modal-ui h2 { margin-top: 0; text-align: center; border-bottom: 2px solid #555; padding-bottom: 8px; margin-bottom: 12px; }
+        .modal-ui h3 { font-size: 13px; margin-top: 15px; margin-bottom: 6px; color: #bfa37a; text-transform: uppercase; letter-spacing: 0.5px; }
+
+        .pocket-crafting-section { background: rgba(255,255,255,0.03); border: 1px solid #444; border-radius: 6px; padding: 8px; margin-bottom: 15px; }
+        .recipe-row { display: flex; justify-content: space-between; align-items: center; margin: 6px 0; background: rgba(255,255,255,0.04); padding: 8px; border-radius: 4px; }
+        .recipe-info { font-size: 12px; }
+        .craft-btn { background: #557a2b; color: white; border: none; padding: 5px 10px; font-weight: bold; border-radius: 4px; cursor: pointer; transition: background 0.1s; font-size: 11px; }
+        .craft-btn:hover { background: #71a33a; }
+        .craft-btn:disabled { background: #444; color: #888; cursor: not-allowed; }
+
+        .inventory-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 12px; }
+        .interactive-hotbar-mirror { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-bottom: 12px; }
+        .ui-instruction-tag { font-size: 11px; color: #aaa; text-align: center; margin-bottom: 10px; }
+        .ui-close-btn { display: block; width: 100%; margin-top: 15px; background: #866043; color: white; border: none; padding: 8px; font-weight: bold; border-radius: 4px; cursor: pointer; }
+
+        .furnace-layout { display: flex; justify-content: space-around; align-items: center; margin: 20px 0; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 6px; border: 1px solid #444; }
+        .furnace-column { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+        .furnace-label { font-size: 11px; text-transform: uppercase; color: #aaa; }
+        .fire-icon { width: 24px; height: 24px; background: #ff5500; clip-path: polygon(50% 0%, 80% 30%, 100% 70%, 80% 100%, 20% 100%, 0% 70%, 20% 30%); box-shadow: 0 0 10px #ffcc00; margin: 10px 0; }
+    </style>
+</head>
+<body>
+
+    <!-- ==================== TITLE SCREEN ==================== -->
+    <div id="title-screen">
+        <div id="title-logo">VOXEL BUILDER</div>
+        <div id="title-edition">🧟 Night Zombies Update</div>
+        <div id="title-tagline">Built with Three.js</div>
+
+        <div id="title-buttons">
+            <button class="title-btn primary" id="btn-title-new">⛏ New Game</button>
+            <button class="title-btn" id="btn-title-continue" disabled>📂 Continue</button>
+            <button class="title-btn" id="btn-title-multiplayer">🌐 Multiplayer</button>
+            <button class="title-btn" id="btn-title-settings">⚙ Settings</button>
+            <button class="title-btn danger" id="btn-title-delete" disabled style="font-size:12px;">🗑 Delete Save</button>
+        </div>
+        <div id="title-save-info"></div>
+
+        <div class="title-divider"></div>
+
+        <div id="title-footer">
+            <div id="title-controls-hint">
+                W A S D — Move &nbsp;|&nbsp; Space — Jump &nbsp;|&nbsp; Z — Sneak &nbsp;|&nbsp; Left Click — Mine &nbsp;|&nbsp; Right Click — Place<br>
+                E — Inventory &nbsp;|&nbsp; F5 / Ctrl+S — Quick Save &nbsp;|&nbsp; 1-7 — Hotbar Slot &nbsp;|&nbsp; Esc — Pause
+            </div>
+            <div id="title-version">v2.1 — Pause &amp; Settings Edition</div>
+        </div>
+    </div>
+    <!-- ==================== END TITLE SCREEN ==================== -->
+
+    <!-- ==================== PAUSE MENU ==================== -->
+    <div id="pause-menu">
+        <div id="pause-title">PAUSED</div>
+        <div id="pause-subtitle">Game is paused</div>
+        <div id="pause-buttons">
+            <button class="pause-btn primary" id="btn-resume">▶ Resume</button>
+            <button class="pause-btn" id="btn-pause-settings">⚙ Settings</button>
+            <button class="pause-btn danger" id="btn-save-quit">💾 Save &amp; Quit to Title</button>
+        </div>
+    </div>
+    <!-- ==================== END PAUSE MENU ==================== -->
+
+    <!-- ==================== SETTINGS MENU ==================== -->
+    <div id="settings-menu">
+        <div id="settings-panel">
+            <h1>⚙ SETTINGS</h1>
+
+            <div class="settings-section-title">Video</div>
+
+            <div class="settings-row">
+                <span class="settings-label">Field of View</span>
+                <input type="range" class="settings-slider" id="fov-slider" min="60" max="110" step="5" value="75">
+                <span class="settings-value" id="fov-value">75°</span>
+            </div>
+
+            <div class="settings-row">
+                <span class="settings-label">Render Distance</span>
+                <input type="range" class="settings-slider" id="rd-slider" min="1" max="5" step="1" value="2">
+                <span class="settings-value" id="rd-value">Short</span>
+            </div>
+            <div class="settings-hint">↑ Changes apply when you move to a new area.</div>
+
+            <div class="settings-section-title">Controls &nbsp;<span style="font-size:9px;color:#4c566a;letter-spacing:1px;">— click a key to rebind — esc to cancel</span></div>
+            <div id="keybinds-container"></div>
+
+            <button id="settings-back-btn">← Back</button>
+        </div>
+    </div>
+    <!-- ==================== END SETTINGS MENU ==================== -->
+
+    <div id="crosshair"></div>
+    <div id="sleep-overlay"></div>
+    <div id="crouch-indicator">▼ SNEAKING</div>
+
+    <div id="hud-container">
+        <div class="hud-row">
+            <span class="hud-title">Health</span>
+            <div class="heart" id="heart-0"></div><div class="heart" id="heart-1"></div><div class="heart" id="heart-2"></div>
+            <div class="heart" id="heart-3"></div><div class="heart" id="heart-4"></div><div class="heart" id="heart-5"></div>
+            <div class="heart" id="heart-6"></div><div class="heart" id="heart-7"></div><div class="heart" id="heart-8"></div>
+            <div class="heart" id="heart-9"></div>
+        </div>
+        <div class="hud-row">
+            <span class="hud-title">Hunger</span>
+            <div class="hunger-bar" id="hunger-0"></div><div class="hunger-bar" id="hunger-1"></div><div class="hunger-bar" id="hunger-2"></div>
+            <div class="hunger-bar" id="hunger-3"></div><div class="hunger-bar" id="hunger-4"></div><div class="hunger-bar" id="hunger-5"></div>
+            <div class="hunger-bar" id="hunger-6"></div><div class="hunger-bar" id="hunger-7"></div><div class="hunger-bar" id="hunger-8"></div>
+            <div class="hunger-bar" id="hunger-9"></div>
+        </div>
+    </div>
+
+    <button id="hud-save-btn" title="Quick Save (F5 / Ctrl+S)">💾 Save</button>
+    <button id="music-toggle" title="Toggle Music">🎵 Music: ON</button>
+    <div id="now-playing"></div>
+    <div id="save-notification">💾 Game Saved!</div>
+
+    <div id="instructions">
+        <h1>— Paused —</h1>
+        <p>Click anywhere to resume</p>
+        <p style="color:#aaa;font-size:12px;">F5 / Ctrl+S to quick save while playing</p>
+    </div>
+
+    <div id="mining-warning">You need a stronger pickaxe to mine this!</div>
+
+    <div id="hotbar">
+        <div class="slot active" id="slot-0"><span class="key-bind">1</span><div class="block-icon"></div><span class="label"></span><span class="count">0</span></div>
+        <div class="slot" id="slot-1"><span class="key-bind">2</span><div class="block-icon"></div><span class="label"></span><span class="count">0</span></div>
+        <div class="slot" id="slot-2"><span class="key-bind">3</span><div class="block-icon"></div><span class="label"></span><span class="count">0</span></div>
+        <div class="slot" id="slot-3"><span class="key-bind">4</span><div class="block-icon"></div><span class="label"></span><span class="count">0</span></div>
+        <div class="slot" id="slot-4"><span class="key-bind">5</span><div class="block-icon"></div><span class="label"></span><span class="count">0</span></div>
+        <div class="slot" id="slot-5"><span class="key-bind">6</span><div class="block-icon"></div><span class="label"></span><span class="count">0</span></div>
+        <div class="slot" id="slot-6"><span class="key-bind">7</span><div class="block-icon"></div><span class="label"></span><span class="count">0</span></div>
+    </div>
+
+    <div id="storage-screen" class="modal-ui">
+        <h2>Inventory &amp; Storage</h2>
+        <div class="ui-instruction-tag">Click items to swap between Hotbar &amp; Vault</div>
+        <h3>Pocket Crafting</h3>
+        <div class="pocket-crafting-section">
+            <div class="recipe-row"><div class="recipe-info"><b style="color:#ffcc00;">Torch (x4)</b><br>Costs: 1 Coal Ore, 1 Stick</div><button class="craft-btn" id="p-btn-craft-torch">Craft</button></div>
+            <div class="recipe-row"><div class="recipe-info"><b>Wood Planks (x4)</b><br>Costs: 1 Wood Block</div><button class="craft-btn" id="p-btn-craft-planks">Craft</button></div>
+            <div class="recipe-row"><div class="recipe-info"><b>Sticks (x4)</b><br>Costs: 1 Planks Block</div><button class="craft-btn" id="p-btn-craft-sticks">Craft</button></div>
+            <div class="recipe-row"><div class="recipe-info"><b>Crafting Table (x1)</b><br>Costs: 4 Planks Blocks</div><button class="craft-btn" id="p-btn-craft-table">Craft</button></div>
+        </div>
+        <h3>Extra Storage (10 Slots)</h3>
+        <div class="inventory-grid" id="storage-grid-container"></div>
+        <h3>Hotbar</h3>
+        <div class="interactive-hotbar-mirror" id="mirror-hotbar-container"></div>
+        <button id="close-storage" class="ui-close-btn">Close (E)</button>
+    </div>
+
+    <div id="crafting-screen" class="modal-ui">
+        <h2>Crafting Table</h2>
+        <div class="ui-instruction-tag" style="color:#71a33a;">Advanced Workbench Connected</div>
+        <div class="recipe-row"><div class="recipe-info"><b style="color:#ffcc00;">Torch (x4)</b><br>Costs: 1 Coal Ore, 1 Stick</div><button class="craft-btn" id="btn-craft-torch">Craft</button></div>
+        <div class="recipe-row"><div class="recipe-info"><b>Wood Planks (x4)</b><br>Costs: 1 Wood Block</div><button class="craft-btn" id="btn-craft-planks">Craft</button></div>
+        <div class="recipe-row"><div class="recipe-info"><b>Sticks (x4)</b><br>Costs: 1 Planks Block</div><button class="craft-btn" id="btn-craft-sticks">Craft</button></div>
+        <div class="recipe-row"><div class="recipe-info"><b>Crafting Table (x1)</b><br>Costs: 4 Planks Blocks</div><button class="craft-btn" id="btn-craft-table">Craft</button></div>
+        <div class="recipe-row"><div class="recipe-info"><b style="color:#da915f;">Chest (x1)</b><br>Costs: 8 Planks Blocks</div><button class="craft-btn" id="btn-craft-chest">Craft</button></div>
+        <div class="recipe-row"><div class="recipe-info"><b style="color:#ff5566;">Bed (x1)</b><br>Costs: 3 Wool, 3 Planks</div><button class="craft-btn" id="btn-craft-bed">Craft</button></div>
+        <div class="recipe-row"><div class="recipe-info"><b style="color:#bfa37a;">Wooden Pickaxe (x1)</b><br>Costs: 3 Planks, 2 Sticks</div><button class="craft-btn" id="btn-craft-pickaxe">Craft</button></div>
+        <div class="recipe-row"><div class="recipe-info"><b style="color:#9e9e9e;">Stone Pickaxe (x1)</b><br>Costs: 3 Stone, 2 Sticks</div><button class="craft-btn" id="btn-craft-stone-pickaxe">Craft</button></div>
+        <div class="recipe-row"><div class="recipe-info"><b style="color:#e6e6e6;">Iron Pickaxe (x1)</b><br>Costs: 3 Iron Ingots, 2 Sticks</div><button class="craft-btn" id="btn-craft-iron-pickaxe">Craft</button></div>
+        <div class="recipe-row"><div class="recipe-info"><b style="color:#00d2ff;">Diamond Pickaxe (x1)</b><br>Costs: 3 Diamonds, 2 Sticks</div><button class="craft-btn" id="btn-craft-diamond-pickaxe">Craft</button></div>
+        <div class="recipe-row"><div class="recipe-info"><b style="color:#bfa37a;">Wooden Axe (x1)</b><br>Costs: 3 Planks, 2 Sticks</div><button class="craft-btn" id="btn-craft-wooden-axe">Craft</button></div>
+        <div class="recipe-row"><div class="recipe-info"><b style="color:#9e9e9e;">Stone Axe (x1)</b><br>Costs: 3 Stone, 2 Sticks</div><button class="craft-btn" id="btn-craft-stone-axe">Craft</button></div>
+        <div class="recipe-row"><div class="recipe-info"><b style="color:#e6e6e6;">Iron Axe (x1)</b><br>Costs: 3 Iron Ingots, 2 Sticks</div><button class="craft-btn" id="btn-craft-iron-axe">Craft</button></div>
+        <div class="recipe-row"><div class="recipe-info"><b style="color:#00d2ff;">Diamond Axe (x1)</b><br>Costs: 3 Diamonds, 2 Sticks</div><button class="craft-btn" id="btn-craft-diamond-axe">Craft</button></div>
+        <div class="recipe-row"><div class="recipe-info"><b style="color:#ff5500;">Furnace (x1)</b><br>Costs: 8 Stone</div><button class="craft-btn" id="btn-craft-furnace">Craft</button></div>
+        <button id="close-crafting" class="ui-close-btn">Exit Workbench</button>
+    </div>
+
+    <div id="furnace-screen" class="modal-ui">
+        <h2>Furnace</h2>
+        <div class="ui-instruction-tag" style="color:#ffcc00;">Smelt items and refined ore blocks here.</div>
+        <div class="furnace-layout">
+            <div class="furnace-column">
+                <span class="furnace-label">Source</span>
+                <div class="slot" id="furnace-source-view"><div class="block-icon"></div><span class="label"></span><span class="count">0</span></div>
+                <span class="furnace-label">Fuel</span>
+                <div class="slot" id="furnace-fuel-view"><div class="block-icon"></div><span class="label"></span><span class="count">0</span></div>
+            </div>
+            <div class="furnace-column"><div class="fire-icon"></div><button class="craft-btn" id="btn-smelt-execute" style="background:#a84623;">Smelt</button></div>
+            <div class="furnace-column">
+                <span class="furnace-label">Result</span>
+                <div class="slot" id="furnace-result-view" style="pointer-events:none;"><div class="block-icon"></div><span class="label"></span><span class="count">0</span></div>
+            </div>
+        </div>
+        <h3>Extra Storage (10 Slots)</h3>
+        <div class="inventory-grid" id="furnace-storage-grid-container"></div>
+        <h3>Hotbar</h3>
+        <div class="interactive-hotbar-mirror" id="furnace-mirror-hotbar-container"></div>
+        <button id="close-furnace" class="ui-close-btn">Exit Furnace</button>
+    </div>
+
+    <div id="chest-screen" class="modal-ui">
+        <h2>Chest Storage</h2>
+        <div class="ui-instruction-tag" style="color:#da915f;">Manage items below</div>
+        <h3>Chest Inventory (15 Slots)</h3>
+        <div class="inventory-grid" id="chest-grid-container" style="grid-template-columns:repeat(5,1fr);"></div>
+        <h3>Extra Storage (10 Slots)</h3>
+        <div class="inventory-grid" id="chest-storage-grid-container"></div>
+        <h3>Hotbar</h3>
+        <div class="interactive-hotbar-mirror" id="chest-mirror-hotbar-container"></div>
+        <button id="close-chest" class="ui-close-btn">Exit Chest</button>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/controls/PointerLockControls.js"></script>
+    <script>
+    // =====================================================================
+    //  SETTINGS SYSTEM
+    // =====================================================================
+    const SETTINGS_KEY = 'voxelbuilder_settings';
+
+    const RENDER_DISTANCE_CONFIGS = [
+        { label: 'Tiny',    chunks: 1, fogNear: 9,  fogFar: 13, cullDist: 14 },
+        { label: 'Short',   chunks: 2, fogNear: 18, fogFar: 26, cullDist: 26 },
+        { label: 'Normal',  chunks: 3, fogNear: 28, fogFar: 42, cullDist: 42 },
+        { label: 'Far',     chunks: 4, fogNear: 42, fogFar: 58, cullDist: 58 },
+        { label: 'Extreme', chunks: 5, fogNear: 58, fogFar: 76, cullDist: 76 }
+    ];
+
+    const DEFAULT_KEYBINDS = {
+        forward:   'KeyW',
+        backward:  'KeyS',
+        left:      'KeyA',
+        right:     'KeyD',
+        jump:      'Space',
+        inventory: 'KeyE'
+    };
+
+    const KEYBIND_LABELS = {
+        forward: 'Forward', backward: 'Backward', left: 'Strafe Left',
+        right: 'Strafe Right', jump: 'Jump', inventory: 'Inventory'
+    };
+
+    let gameSettings = {
+        fov: 75,
+        renderDistance: 2,
+        keybinds: Object.assign({}, DEFAULT_KEYBINDS)
+    };
+
+    function loadSettings() {
+        try {
+            const saved = localStorage.getItem(SETTINGS_KEY);
+            if (saved) {
+                const p = JSON.parse(saved);
+                if (p.fov)             gameSettings.fov = Math.max(60, Math.min(110, p.fov));
+                if (p.renderDistance)  gameSettings.renderDistance = Math.max(1, Math.min(5, p.renderDistance));
+                if (p.keybinds)        Object.assign(gameSettings.keybinds, p.keybinds);
+            }
+        } catch(e) {}
+    }
+
+    function persistSettings() {
+        try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(gameSettings)); } catch(e) {}
+    }
+
+    function keyCodeDisplay(code) {
+        if (!code) return '?';
+        const map = {
+            'Space':'SPACE','Enter':'ENTER','Escape':'ESC','Backspace':'BKSP','Tab':'TAB',
+            'ArrowUp':'↑','ArrowDown':'↓','ArrowLeft':'←','ArrowRight':'→',
+            'ShiftLeft':'L-SHIFT','ShiftRight':'R-SHIFT',
+            'ControlLeft':'L-CTRL','ControlRight':'R-CTRL',
+            'AltLeft':'L-ALT','AltRight':'R-ALT',
+            'Backquote':'`','BracketLeft':'[','BracketRight':']',
+            'Semicolon':';','Quote':"'",'Comma':',','Period':'.','Slash':'/','Backslash':'\\',
+            'Minus':'-','Equal':'='
+        };
+        if (map[code]) return map[code];
+        if (code.startsWith('Key'))    return code.slice(3);
+        if (code.startsWith('Digit'))  return code.slice(5);
+        if (code.startsWith('Numpad')) return 'NUM' + code.slice(6);
+        return code;
+    }
+
+    let listeningForKeybind = null; // action name or null
+    let settingsReturnTarget = 'title'; // 'title' or 'pause'
+    let isGamePaused = false;
+
+    function renderSettingsPanel() {
+        // Sync sliders
+        const fovSlider = document.getElementById('fov-slider');
+        const rdSlider  = document.getElementById('rd-slider');
+        fovSlider.value = gameSettings.fov;
+        rdSlider.value  = gameSettings.renderDistance;
+        document.getElementById('fov-value').textContent = gameSettings.fov + '°';
+        document.getElementById('rd-value').textContent  = RENDER_DISTANCE_CONFIGS[gameSettings.renderDistance - 1].label;
+
+        // Render keybind rows
+        const container = document.getElementById('keybinds-container');
+        container.innerHTML = '';
+        for (const [action, label] of Object.entries(KEYBIND_LABELS)) {
+            const isListening = listeningForKeybind === action;
+            const row = document.createElement('div');
+            row.className = 'keybind-row';
+
+            const labelEl = document.createElement('span');
+            labelEl.className = 'keybind-label';
+            labelEl.textContent = label;
+
+            const controls = document.createElement('div');
+            controls.style.cssText = 'display:flex;gap:8px;align-items:center;';
+
+            const btn = document.createElement('button');
+            btn.className = 'keybind-btn' + (isListening ? ' listening' : '');
+            btn.textContent = isListening ? 'Press any key…' : keyCodeDisplay(gameSettings.keybinds[action]);
+            btn.addEventListener('click', () => {
+                listeningForKeybind = action;
+                renderSettingsPanel();
+            });
+
+            const resetBtn = document.createElement('button');
+            resetBtn.className = 'keybind-reset-btn';
+            resetBtn.textContent = 'reset';
+            resetBtn.title = 'Reset to default';
+            resetBtn.addEventListener('click', () => {
+                gameSettings.keybinds[action] = DEFAULT_KEYBINDS[action];
+                listeningForKeybind = null;
+                persistSettings();
+                renderSettingsPanel();
+            });
+
+            controls.appendChild(btn);
+            controls.appendChild(resetBtn);
+            row.appendChild(labelEl);
+            row.appendChild(controls);
+            container.appendChild(row);
+        }
+    }
+
+    function openSettings(returnTarget) {
+        settingsReturnTarget = returnTarget;
+        listeningForKeybind = null;
+        document.getElementById('settings-menu').style.display = 'flex';
+        renderSettingsPanel();
+    }
+
+    function closeSettings() {
+        listeningForKeybind = null;
+        document.getElementById('settings-menu').style.display = 'none';
+        persistSettings();
+        applySettings();
+        if (settingsReturnTarget === 'pause') {
+            showPauseMenu();
+        }
+        // If 'title' — title screen is already visible behind settings overlay
+    }
+
+    // Settings slider listeners
+    document.getElementById('fov-slider').addEventListener('input', (e) => {
+        gameSettings.fov = parseInt(e.target.value);
+        document.getElementById('fov-value').textContent = gameSettings.fov + '°';
+        applySettings();
+    });
+    document.getElementById('rd-slider').addEventListener('input', (e) => {
+        gameSettings.renderDistance = parseInt(e.target.value);
+        document.getElementById('rd-value').textContent = RENDER_DISTANCE_CONFIGS[gameSettings.renderDistance - 1].label;
+        applySettings();
+    });
+    document.getElementById('settings-back-btn').addEventListener('click', closeSettings);
+    document.getElementById('btn-title-settings').addEventListener('click', () => openSettings('title'));
+    // =====================================================================
+    //  END SETTINGS SYSTEM
+    // =====================================================================
+
+
+    // =====================================================================
+    //  SAVE / LOAD SYSTEM
+    // =====================================================================
+    const SAVE_KEY = 'voxelbuilder_v2_save';
+
+    const playerPlacedBlocks  = new Map();
+    const playerRemovedKeys   = new Set();
+    const playerPlacedTorches = [];
+    const playerPlacedBeds    = [];
+
+    function hasSave() { return localStorage.getItem(SAVE_KEY) !== null; }
+
+    function saveGame() {
+        if (!gameStarted) return;
+        const pos = controls.getObject().position;
+        const data = {
+            version: 2,
+            savedAt: new Date().toLocaleString(),
+            seeds: {
+                x: terrainSeedX, y: terrainSeedY, z: terrainSeedZ,
+                totalLakes: totalLakesToBuild,
+                lake1x: lakeCenter1.x, lake1z: lakeCenter1.y,
+                lake2x: lakeCenter2.x, lake2z: lakeCenter2.y
+            },
+            player: {
+                px: pos.x, py: pos.y, pz: pos.z,
+                health: playerHealth, hunger: playerHunger,
+                totalPlaytimeElapsed: totalPlaytimeElapsed
+            },
+            hotbar:  hotbarSlots.map(s => ({ type: s.type, count: s.count })),
+            storage: storageSlots.map(s => ({ type: s.type, count: s.count })),
+            chest:   chestSlots.map(s => ({ type: s.type, count: s.count })),
+            furnaceSource: { type: furnaceSourceSlot.type, count: furnaceSourceSlot.count },
+            furnaceFuel:   { type: furnaceFuelSlot.type,   count: furnaceFuelSlot.count   },
+            furnaceResult: { type: furnaceResultSlot.type,  count: furnaceResultSlot.count },
+            placedBlocks:  Array.from(playerPlacedBlocks.values()),
+            removedKeys:   Array.from(playerRemovedKeys),
+            torches:       playerPlacedTorches.slice(),
+            beds:          playerPlacedBeds.slice()
+        };
+        try {
+            localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+            showSaveNotification();
+            updateTitleSaveInfo();
+        } catch(e) { console.warn('Save failed:', e); }
+    }
+
+    function getSaveData() {
+        try { return JSON.parse(localStorage.getItem(SAVE_KEY)); } catch(e) { return null; }
+    }
+
+    function deleteSave() {
+        localStorage.removeItem(SAVE_KEY);
+        updateTitleSaveInfo();
+    }
+
+    let _saveNotifTimer = null;
+    function showSaveNotification() {
+        const el = document.getElementById('save-notification');
+        el.style.display = 'block'; el.style.opacity = '1';
+        clearTimeout(_saveNotifTimer);
+        _saveNotifTimer = setTimeout(() => {
+            el.style.opacity = '0';
+            setTimeout(() => { el.style.display = 'none'; }, 700);
+        }, 2200);
+    }
+
+    function applyWorldChanges(saveData) {
+        for (const key of (saveData.removedKeys || [])) {
+            const block = spatialGrid.get(key);
+            if (block) {
+                scene.remove(block);
+                gridRemove(block);
+                const idx = objects.indexOf(block);
+                if (idx !== -1) objects.splice(idx, 1);
+            }
+            playerRemovedKeys.add(key);
+        }
+        for (const b of (saveData.placedBlocks || [])) {
+            const mat = getMaterialForType(b.type);
+            if (mat) {
+                createBlock(b.x, b.y, b.z, mat, b.type);
+                playerPlacedBlocks.set(gridKey(b.x, b.y, b.z), { type: b.type, x: b.x, y: b.y, z: b.z });
+            }
+        }
+        for (const t of (saveData.torches || [])) {
+            spawnTorchLightMeshNode(t.x, t.y, t.z);
+            playerPlacedTorches.push({ x: t.x, y: t.y, z: t.z });
+        }
+        for (const bed of (saveData.beds || [])) {
+            spawnTwoBlockBed(bed.footX, bed.footY, bed.footZ, bed.dirX, bed.dirZ);
+            playerPlacedBeds.push(bed);
+        }
+    }
+
+    function applyPlayerState(saveData) {
+        const p = saveData.player;
+        controls.getObject().position.set(p.px, p.py, p.pz);
+        lastPosition2D.set(p.px, p.pz);
+        playerHealth = Math.max(1, p.health);
+        playerHunger = Math.max(0, p.hunger);
+        totalPlaytimeElapsed = p.totalPlaytimeElapsed || 0;
+        invincibilityEndTime = performance.now() + 3000;
+
+        saveData.hotbar.forEach((s, i)  => { hotbarSlots[i].type  = s.type;  hotbarSlots[i].count  = s.count; });
+        saveData.storage.forEach((s, i) => { storageSlots[i].type = s.type;  storageSlots[i].count = s.count; });
+        saveData.chest.forEach((s, i)   => { chestSlots[i].type   = s.type;  chestSlots[i].count   = s.count; });
+        furnaceSourceSlot.type = saveData.furnaceSource.type; furnaceSourceSlot.count = saveData.furnaceSource.count;
+        furnaceFuelSlot.type   = saveData.furnaceFuel.type;   furnaceFuelSlot.count   = saveData.furnaceFuel.count;
+        furnaceResultSlot.type = saveData.furnaceResult.type;  furnaceResultSlot.count  = saveData.furnaceResult.count;
+
+        updateInventoryUI(); updateHUDVisuals();
+    }
+
+    function getMaterialForType(type) {
+        const map = {
+            grass: matGrassBlockArray, dirt: matDirt, wood: matWood,
+            leaves: matLeaves, planks: matPlanks, stone: matStone,
+            coal_ore: matCoalOre, iron_ore: matIronOre, diamond_ore: matDiamondOre,
+            sand: matSand, water: matWater, glass: matGlass, wool: matWool,
+            crafting_table: matTableBlockArray, furnace: matFurnaceBlockArray, chest: matChestBlockArray
+        };
+        return map[type] || null;
+    }
+    // =====================================================================
+    //  END SAVE / LOAD SYSTEM
+    // =====================================================================
+
+
+    // =====================================================================
+    //  TITLE SCREEN LOGIC
+    // =====================================================================
+    let gameStarted = false;
+    // ── Multiplayer state ──────────────────────────────────────────────────────────
+    let ws               = null;
+    let myPlayerId       = null;
+    let playerName       = 'Player';
+    let isMultiplayer    = false;
+    let serverInitData   = null;
+    let positionSendAccum = 0;
+    let stateSendAccum   = 0;
+    const POSITION_SEND_RATE = 0.05; // 20 Hz
+    const remotePlayers  = new Map(); // id -> { group, targetX/Y/Z, currentX/Y/Z, targetYaw, currentYaw }
+    let titleCameraAngle = 0;
+
+    function updateTitleSaveInfo() {
+        const save = getSaveData();
+        const infoEl = document.getElementById('title-save-info');
+        const continueBtn = document.getElementById('btn-title-continue');
+        const deleteBtn = document.getElementById('btn-title-delete');
+        if (save) {
+            continueBtn.disabled = false;
+            deleteBtn.disabled = false;
+            infoEl.textContent = `Last save: ${save.savedAt || 'unknown'}`;
+        } else {
+            continueBtn.disabled = true;
+            deleteBtn.disabled = true;
+            infoEl.textContent = 'No save file found';
+        }
+    }
+
+    function hideTitleScreen() {
+        const ts = document.getElementById('title-screen');
+        ts.style.transition = 'opacity 0.5s';
+        ts.style.opacity = '0';
+        setTimeout(() => { ts.style.display = 'none'; }, 520);
+        document.getElementById('hud-save-btn').style.display = 'block';
+        document.getElementById('music-toggle').style.display = 'block';
+    }
+
+    document.getElementById('btn-title-new').addEventListener('click', () => {
+        generateWorld(false);
+        hideTitleScreen();
+        initMusicSystem();
+        controls.lock();
+    });
+
+    document.getElementById('btn-title-continue').addEventListener('click', () => {
+        const save = getSaveData();
+        if (!save) return;
+        generateWorld(true, save);
+        hideTitleScreen();
+        initMusicSystem();
+        controls.lock();
+    });
+
+    document.getElementById('btn-title-delete').addEventListener('click', () => {
+        if (confirm('Delete save file? This cannot be undone.')) {
+            deleteSave();
+            updateTitleSaveInfo();
+        }
+    });
+
+    document.getElementById('hud-save-btn').addEventListener('click', saveGame);
+    document.getElementById('btn-title-multiplayer').addEventListener('click', async () => {
+        const address = prompt('Server address:', 'localhost:8080');
+        if (!address) return;
+        playerName = (prompt('Your player name:', 'Player') || 'Player').slice(0, 16);
+        isMultiplayer = true;
+        // Pre-generate seeds in case we are the very first player on this server
+        terrainSeedX = Math.random() * 10000;
+        terrainSeedY = Math.random() * 10000;
+        terrainSeedZ = Math.random() * 10000;
+        totalLakesToBuild = Math.random() < 0.3 ? 1 : 2;
+        lakeCenter1 = new THREE.Vector2((Math.random()*20)-10, (Math.random()*20)-10);
+        lakeCenter2 = new THREE.Vector2((Math.random()*20)-10, (Math.random()*20)-10);
+        if (totalLakesToBuild > 1) {
+            let esc = 0;
+            while (lakeCenter2.distanceTo(lakeCenter1) < 28.0 && esc < 100) {
+                lakeCenter2.x = -lakeCenter1.x + ((Math.random()*8)-4);
+                lakeCenter2.y = -lakeCenter1.y + ((Math.random()*8)-4);
+                esc++;
+            }
+        }
+        const seeds = { x:terrainSeedX, y:terrainSeedY, z:terrainSeedZ, totalLakes:totalLakesToBuild, lake1x:lakeCenter1.x, lake1z:lakeCenter1.y, lake2x:lakeCenter2.x, lake2z:lakeCenter2.y };
+        try {
+            await connectMultiplayer(address, playerName, seeds);
+            generateWorld(false);
+            hideTitleScreen();
+            initMusicSystem();
+            controls.lock();
+        } catch(e) {
+            alert('Failed to connect: ' + e.message);
+            isMultiplayer = false;
+            ws = null;
+            serverInitData = null;
+        }
+    });
+    // =====================================================================
+    //  END TITLE SCREEN LOGIC
+    // =====================================================================
+
+
+    // =====================================================================
+    //  PAUSE MENU LOGIC
+    // =====================================================================
+    const pauseMenuEl    = document.getElementById('pause-menu');
+    const settingsMenuEl = document.getElementById('settings-menu');
+
+    function showPauseMenu() {
+        isGamePaused = true;
+        pauseMenuEl.style.display = 'flex';
+    }
+
+    function hidePauseMenu() {
+        isGamePaused = false;
+        pauseMenuEl.style.display = 'none';
+    }
+
+    function quitToTitle() {
+        // Save first
+        saveGame();
+
+        // Hide all game overlays
+        hidePauseMenu();
+        settingsMenuEl.style.display = 'none';
+        document.getElementById('instructions').style.display = 'none';
+        storageScreenEl.style.display  = 'none';
+        craftingScreenEl.style.display = 'none';
+        furnaceScreenEl.style.display  = 'none';
+        chestScreenEl.style.display    = 'none';
+        isUIOpen = false;
+
+        // Clear world state
+        for(let i = objects.length - 1; i >= 0; i--) scene.remove(objects[i]);
+        objects.length = 0; torchObjects.length = 0; bedObjects.length = 0; spatialGrid.clear();
+        chunkMap.clear(); buildQueue.length = 0; _lastPCX = 99999; _lastPCZ = 99999;
+        sheepGroupArray.length = 0; zombieGroupArray.length = 0;
+        for(let i=droppedItems.length-1;i>=0;i--) scene.remove(droppedItems[i]);
+        droppedItems.length=0;
+        playerPlacedBlocks.clear(); playerRemovedKeys.clear();
+        playerPlacedTorches.length = 0; playerPlacedBeds.length = 0;
+
+        // Reset game flags
+        if (ws) { ws.close(); ws = null; }
+        for (const [rid] of remotePlayers) removeRemotePlayer(rid);
+        remotePlayers.clear();
+        isMultiplayer = false; myPlayerId = null; serverInitData = null;
+        gameStarted = false;
+        isSleeping  = false;
+        isGamePaused = false;
+        globalNightLerpRatio = 0;
+        zombiesHaveSpawnedThisNight = false;
+        totalPlaytimeElapsed = 0;
+        moveForward = false; moveBackward = false; moveLeft = false; moveRight = false;
+        isCrouching = false;
+        velocity.set(0, 0, 0);
+
+        // Reset visual state
+        scene.background.copy(daySkyColor);
+        worldFog.color.copy(daySkyColor);
+        document.body.style.backgroundColor = '#87CEEB';
+        directionalLight.intensity = 0.6;
+        ambientLight.color.set(0xe0e0e0);
+        ambientLight.intensity = 0.8;
+
+        // Reset camera vertical offset
+        camera.position.y = 0;
+
+        // Reset player height offset
+        playerHeightOffset = STAND_HEIGHT;
+
+        // Hide crouch indicator
+        document.getElementById('crouch-indicator').style.display = 'none';
+
+        // Hide in-game HUD buttons
+        document.getElementById('hud-save-btn').style.display = 'none';
+        document.getElementById('music-toggle').style.display = 'none';
+        document.getElementById('now-playing').style.display  = 'none';
+
+        // Show title screen
+        const ts = document.getElementById('title-screen');
+        ts.style.transition = 'none';
+        ts.style.display = 'flex';
+        ts.style.opacity = '1';
+        updateTitleSaveInfo();
+    }
+
+    document.getElementById('btn-resume').addEventListener('click', () => {
+        hidePauseMenu();
+        controls.lock();
+    });
+    document.getElementById('btn-pause-settings').addEventListener('click', () => {
+        hidePauseMenu();
+        openSettings('pause');
+    });
+    document.getElementById('btn-save-quit').addEventListener('click', quitToTitle);
+    // =====================================================================
+    //  END PAUSE MENU LOGIC
+    // =====================================================================
+
+
+    // =====================================================================
+    //  AMBIENT MUSIC SYSTEM
+    // =====================================================================
+    let audioCtx = null; let masterGain = null; let musicEnabled = true; let musicInitialised = false;
+    let musicTimeSinceLastNote = 0; let nextNoteGap = 3.5;
+    let droneOsc = null; let droneGain = null;
+
+    const DAY_SCALE   = [130.81,146.83,164.81,196.00,220.00,261.63,293.66,329.63,392.00,440.00,523.25,587.33,659.25];
+    const NIGHT_SCALE = [73.42,82.41,87.31,98.00,110.00,116.54,146.83,164.81,174.61,196.00,220.00,233.08,293.66,329.63,349.23];
+    const DAY_TRACK_NAMES   = ["Calm","Sweden","Wet Hands","Mice on Venus","Living Mice"];
+    const NIGHT_TRACK_NAMES = ["Subwoofer Lullaby","Haggstrom","Danger","Droopy likes Ricochet","Moog City"];
+    let currentTrackName = "";
+
+    function buildReverb(duration=1.8, decay=2.0) {
+        const sampleRate=audioCtx.sampleRate, length=sampleRate*duration, impulse=audioCtx.createBuffer(2,length,sampleRate);
+        for(let ch=0;ch<2;ch++){const data=impulse.getChannelData(ch);for(let i=0;i<length;i++)data[i]=(Math.random()*2-1)*Math.pow(1-i/length,decay);}
+        const conv=audioCtx.createConvolver(); conv.buffer=impulse; return conv;
+    }
+
+    function initMusicSystem() {
+        if (musicInitialised) return; musicInitialised = true;
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        masterGain = audioCtx.createGain(); masterGain.gain.value = 0.38; masterGain.connect(audioCtx.destination);
+        window._sharedReverb = buildReverb(2.2, 2.5); window._sharedReverb.connect(masterGain);
+        droneGain = audioCtx.createGain(); droneGain.gain.value = 0; droneGain.connect(masterGain);
+        droneOsc = audioCtx.createOscillator(); droneOsc.type='sine'; droneOsc.frequency.value=36.71; droneOsc.connect(droneGain); droneOsc.start();
+        const d2=audioCtx.createOscillator(), d2g=audioCtx.createGain();
+        d2.type='sine'; d2.frequency.value=73.42; d2g.gain.value=0.45; d2.connect(d2g); d2g.connect(droneGain); d2.start();
+    }
+
+    function playAmbientNote(isNight) {
+        if (!audioCtx || !musicEnabled) return;
+        const scale=isNight?NIGHT_SCALE:DAY_SCALE, baseFreq=scale[Math.floor(Math.random()*scale.length)], now=audioCtx.currentTime;
+        const attack=0.04+Math.random()*0.12, sustain=1.8+Math.random()*3.5, release=1.5+Math.random()*2.0;
+        const vol=isNight?(0.08+Math.random()*0.07):(0.07+Math.random()*0.06);
+        const osc=audioCtx.createOscillator(), gNode=audioCtx.createGain(), filter=audioCtx.createBiquadFilter();
+        osc.type='sine'; osc.frequency.value=baseFreq; osc.detune.value=(Math.random()-0.5)*6;
+        filter.type='lowpass'; filter.frequency.value=isNight?900:2400; filter.Q.value=0.4;
+        osc.connect(filter); filter.connect(gNode); gNode.connect(masterGain); gNode.connect(window._sharedReverb);
+        gNode.gain.setValueAtTime(0,now); gNode.gain.linearRampToValueAtTime(vol,now+attack);
+        gNode.gain.setValueAtTime(vol,now+attack+sustain); gNode.gain.exponentialRampToValueAtTime(0.0001,now+attack+sustain+release);
+        osc.start(now); osc.stop(now+attack+sustain+release+0.1);
+        if(Math.random()<0.45){const ratio=Math.random()<0.5?1.3348:1.4983, hFreq=baseFreq*ratio;
+            if(hFreq<2000){const hO=audioCtx.createOscillator(),hG=audioCtx.createGain(),hF=audioCtx.createBiquadFilter();
+                hO.type='sine'; hO.frequency.value=hFreq; hO.detune.value=(Math.random()-0.5)*5;
+                hF.type='lowpass'; hF.frequency.value=isNight?700:1800;
+                hO.connect(hF); hF.connect(hG); hG.connect(masterGain); hG.connect(window._sharedReverb);
+                const hVol=vol*0.5, hDelay=0.08+Math.random()*0.15;
+                hG.gain.setValueAtTime(0,now+hDelay); hG.gain.linearRampToValueAtTime(hVol,now+hDelay+attack);
+                hG.gain.setValueAtTime(hVol,now+hDelay+sustain*0.7); hG.gain.exponentialRampToValueAtTime(0.0001,now+hDelay+sustain*0.7+release*0.8);
+                hO.start(now+hDelay); hO.stop(now+hDelay+sustain+release);}
+        }
+        if(Math.random()<0.2){const bFreq=baseFreq*0.25; if(bFreq>20){const bO=audioCtx.createOscillator(),bG=audioCtx.createGain();
+            bO.type='sine'; bO.frequency.value=bFreq; bO.connect(bG); bG.connect(masterGain);
+            const bVol=vol*0.6; bG.gain.setValueAtTime(0,now); bG.gain.linearRampToValueAtTime(bVol,now+0.3);
+            bG.gain.exponentialRampToValueAtTime(0.0001,now+2.5); bO.start(now); bO.stop(now+2.6);}}
+    }
+
+    function updateMusicSystem(delta) {
+        if (!audioCtx || !musicEnabled) return;
+        musicTimeSinceLastNote += delta;
+        if (droneGain) { const td=globalNightLerpRatio>0.5?(globalNightLerpRatio-0.5)*2.0*0.055:0; droneGain.gain.setTargetAtTime(td,audioCtx.currentTime,3.0); }
+        if (musicTimeSinceLastNote >= nextNoteGap) {
+            musicTimeSinceLastNote = 0;
+            const isNight = globalNightLerpRatio > 0.5;
+            playAmbientNote(isNight);
+            nextNoteGap = (isNight?5.0:4.0) + Math.random()*(isNight?9.0:6.0);
+            if (Math.random()<0.25) {
+                const names=isNight?NIGHT_TRACK_NAMES:DAY_TRACK_NAMES;
+                const name=names[Math.floor(Math.random()*names.length)];
+                if (name!==currentTrackName) { currentTrackName=name; showNowPlaying(name); }
+            }
+        }
+    }
+
+    function setMusicEnabled(enabled) {
+        musicEnabled = enabled;
+        if (!audioCtx) return;
+        masterGain.gain.cancelScheduledValues(audioCtx.currentTime);
+        masterGain.gain.setTargetAtTime(enabled?0.38:0, audioCtx.currentTime, 0.6);
+    }
+
+    let nowPlayingTimer = null;
+    function showNowPlaying(name) {
+        const el=document.getElementById('now-playing'); el.textContent='♪  '+name; el.style.display='block'; el.style.opacity='1';
+        clearTimeout(nowPlayingTimer);
+        nowPlayingTimer=setTimeout(()=>{ el.style.opacity='0'; setTimeout(()=>{ el.style.display='none'; },900); },3500);
+    }
+
+    document.getElementById('music-toggle').addEventListener('click', () => {
+        musicEnabled = !musicEnabled; setMusicEnabled(musicEnabled);
+        const btn=document.getElementById('music-toggle');
+        btn.textContent=musicEnabled?'🎵 Music: ON':'🔇 Music: OFF';
+        btn.classList.toggle('muted', !musicEnabled);
+    });
+    // =====================================================================
+    //  END MUSIC SYSTEM
+    // =====================================================================
+
+
+    // Health / Hunger state
+    let playerHealth = 10; const MAX_HEALTH = 10;
+    let lastDamageTime = 0; const REGEN_INTERVAL = 3000; let lastRegenTickTime = 0;
+    let invincibilityEndTime = performance.now() + 2000;
+    let playerHunger = 10.0; const MAX_HUNGER = 10.0;
+    let blocksWalkedCounter = 0.0; let lastPosition2D = new THREE.Vector2(0, 0);
+    let peakAirborneY = 0; let isPlayerAirborne = false;
+
+    // Day-Night state
+    let totalPlaytimeElapsed = 0;
+    const HALF_CYCLE_DURATION = 300; const TRANSITION_SPEED = 20;
+    const FULL_CYCLE_DURATION = (HALF_CYCLE_DURATION * 2) + (TRANSITION_SPEED * 2);
+    let isSleeping = false; let globalNightLerpRatio = 0; let zombiesHaveSpawnedThisNight = false;
+
+    // Terrain seeds
+    let terrainSeedX, terrainSeedY, terrainSeedZ;
+    let totalLakesToBuild;
+    let lakeCenter1, lakeCenter2;
+    const lakeRadiusMax = 2.8;
+
+    // Auto-save timer
+    let autoSaveAccum = 0;
+    const AUTO_SAVE_INTERVAL = 90;
+
+    function updateHUDVisuals() {
+        const isInv = performance.now() < invincibilityEndTime;
+        for (let i=0;i<MAX_HEALTH;i++) {
+            const h=document.getElementById(`heart-${i}`);
+            if (h) { h.classList.toggle('empty', i>=playerHealth); h.classList.toggle('invincible', i<playerHealth && isInv); }
+        }
+        for (let i=0;i<10;i++) {
+            const hb=document.getElementById(`hunger-${i}`);
+            if (hb) hb.classList.toggle('empty', i>=Math.floor(playerHunger));
+        }
+    }
+
+    function damagePlayer(hearts) {
+        if (performance.now() < invincibilityEndTime) return;
+        playerHealth = Math.max(0, playerHealth - hearts); lastDamageTime = performance.now(); updateHUDVisuals();
+        document.body.style.backgroundColor = '#660000';
+        setTimeout(() => {
+            const ct = totalPlaytimeElapsed % FULL_CYCLE_DURATION;
+            document.body.style.backgroundColor = (ct>=HALF_CYCLE_DURATION && ct<HALF_CYCLE_DURATION*2+TRANSITION_SPEED) ? '#1d2636' : '#87CEEB';
+        }, 150);
+        if (playerHealth <= 0) setTimeout(() => { alert("You passed out! All your items were lost."); clearAllInventoriesOnDeath(); respawnPlayer(); }, 10);
+    }
+
+    function clearAllInventoriesOnDeath() {
+        hotbarSlots.forEach(s => { s.type=null; s.count=0; });
+        storageSlots.forEach(s => { s.type=null; s.count=0; });
+        chestSlots.forEach(s => { s.type=null; s.count=0; });
+        furnaceSourceSlot.type=null; furnaceSourceSlot.count=0;
+        furnaceFuelSlot.type=null; furnaceFuelSlot.count=0;
+        furnaceResultSlot.type=null; furnaceResultSlot.count=0;
+        updateInventoryUI();
+    }
+
+    function respawnPlayer() {
+        playerHealth=MAX_HEALTH; playerHunger=MAX_HUNGER; blocksWalkedCounter=0;
+        moveForward=false; moveBackward=false; moveLeft=false; moveRight=false;
+        isCrouching=false;
+        let sy = Math.max(0, calculateProceduralHeight(0,0)) + 3;
+        controls.getObject().position.set(0, sy, 0);
+        lastPosition2D.set(0,0); velocity.set(0,0,0); isPlayerAirborne=false;
+        invincibilityEndTime = performance.now() + 5000; updateHUDVisuals();
+    }
+
+    function handleHealthRegeneration(currentTime) {
+        if (playerHealth<MAX_HEALTH && playerHealth>0 && playerHunger>=10.0 && currentTime-lastDamageTime>4500 && currentTime-lastRegenTickTime>REGEN_INTERVAL) {
+            playerHealth = Math.min(MAX_HEALTH, playerHealth+1); lastRegenTickTime=currentTime; updateHUDVisuals();
+        }
+    }
+
+    // Inventory state
+    const hotbarSlots  = Array(7).fill(null).map(() => ({ type:null, count:0 }));
+    const storageSlots = Array(10).fill(null).map(() => ({ type:null, count:0 }));
+    const chestSlots   = Array(15).fill(null).map(() => ({ type:null, count:0 }));
+    const furnaceSourceSlot = { type:null, count:0 };
+    const furnaceFuelSlot   = { type:null, count:0 };
+    const furnaceResultSlot = { type:null, count:0 };
+    let activeSlotIndex = 0; let isUIOpen = false;
+
+    const storageScreenEl  = document.getElementById('storage-screen');
+    const craftingScreenEl = document.getElementById('crafting-screen');
+    const furnaceScreenEl  = document.getElementById('furnace-screen');
+    const chestScreenEl    = document.getElementById('chest-screen');
+
+    const blockUIData = {
+        grass:{name:'Grass',color:'#557a2b'}, dirt:{name:'Dirt',color:'#866043'}, wood:{name:'Wood',color:'#6d5336'},
+        leaves:{name:'Leaves',color:'#32591a'}, planks:{name:'Planks',color:'#bfa37a'}, sticks:{name:'Sticks',color:'#9c7a4c',isStick:true},
+        crafting_table:{name:'Table',color:'#965d34'}, chest:{name:'Chest',color:'#a05a2c'}, stone:{name:'Stone',color:'#7a7a7a'},
+        coal_ore:{name:'Coal Ore',color:'#3a3a3a'}, iron_ore:{name:'Iron Ore',color:'#b08d71'},
+        diamond_ore:{name:'Diamond Ore',color:'#2daebf'}, furnace:{name:'Furnace',color:'#444444'},
+        sand:{name:'Sand',color:'#e0cda9'}, water:{name:'Water',color:'#4ba3e3'},
+        glass:{name:'Glass',color:'#eef8ff',isGlass:true}, iron_ingot:{name:'Iron Ingot',color:'#e6e6e6',isIngot:true},
+        diamond:{name:'Diamond',color:'#00d2ff',isDiamondGem:true}, raw_mutton:{name:'Raw Mutton',color:'#ff9999',isMutton:true},
+        cooked_mutton:{name:'Cooked Mutton',color:'#a3523b',isCookedMutton:true}, wool:{name:'Wool',color:'#f0f0f0',isWool:true},
+        bed:{name:'Bed',color:'#ff5566',isBed:true}, torch:{name:'Torch',color:'#ffaa00',isTorchItem:true},
+        wooden_pickaxe:{name:'W. Pickaxe',color:'#bfa37a',isTool:true}, stone_pickaxe:{name:'S. Pickaxe',color:'#7a7a7a',isTool:true},
+        iron_pickaxe:{name:'I. Pickaxe',color:'#e6e6e6',isTool:true}, diamond_pickaxe:{name:'D. Pickaxe',color:'#00d2ff',isTool:true},
+        wooden_axe:{name:'W. Axe',color:'#bfa37a',isTool:true}, stone_axe:{name:'S. Axe',color:'#7a7a7a',isTool:true},
+        iron_axe:{name:'I. Axe',color:'#e6e6e6',isTool:true}, diamond_axe:{name:'D. Axe',color:'#00d2ff',isTool:true}
+    };
+
+    let isMiningRequested=false, miningTargetBlock=null, miningStartTime=0;
+    const uiMiningWarning = document.getElementById('mining-warning');
+    let visualCrackOverlayMesh = null;
+
+    function getTotalItemCount(type) {
+        let t=0;
+        hotbarSlots.forEach(s=>{if(s.type===type)t+=s.count;});
+        storageSlots.forEach(s=>{if(s.type===type)t+=s.count;});
+        chestSlots.forEach(s=>{if(s.type===type)t+=s.count;});
+        return t;
+    }
+
+    function consumeItems(type, amount) {
+        let needed=amount;
+        for (let arr of [hotbarSlots,storageSlots,chestSlots]) {
+            for (let s of arr) { if(s.type===type){ const take=Math.min(s.count,needed); s.count-=take; needed-=take; if(s.count===0)s.type=null; if(needed===0)break; } }
+            if(needed===0)break;
+        }
+        updateInventoryUI();
+    }
+
+    function addItemToInventory(type, amount=1) {
+        let remaining=amount;
+        for (let arr of [hotbarSlots,storageSlots]) {
+            for (let s of arr) { if(s.type===type&&s.count<64){ const a=Math.min(64-s.count,remaining); s.count+=a; remaining-=a; if(remaining<=0)break; } }
+            if(remaining<=0)break;
+        }
+        if(remaining>0) {
+            for (let arr of [hotbarSlots,storageSlots]) {
+                for (let s of arr) { if(s.type===null){ s.type=type; const a=Math.min(64,remaining); s.count=a; remaining-=a; if(remaining<=0)break; } }
+                if(remaining<=0)break;
+            }
+        }
+        updateInventoryUI();
+    }
+
+    function updateInventoryUI() {
+        for(let i=0;i<7;i++) { const el=document.getElementById(`slot-${i}`); renderSlotContent(el, hotbarSlots[i], i===activeSlotIndex); }
+        renderGridContainer(document.getElementById('storage-grid-container'), storageSlots, 'storage');
+        renderGridContainer(document.getElementById('mirror-hotbar-container'), hotbarSlots, 'hotbar');
+        renderGridContainer(document.getElementById('chest-grid-container'), chestSlots, 'chest');
+        renderGridContainer(document.getElementById('chest-storage-grid-container'), storageSlots, 'chest-storage');
+        renderGridContainer(document.getElementById('chest-mirror-hotbar-container'), hotbarSlots, 'chest-hotbar');
+        renderGridContainer(document.getElementById('furnace-storage-grid-container'), storageSlots, 'furnace-storage');
+        renderGridContainer(document.getElementById('furnace-mirror-hotbar-container'), hotbarSlots, 'furnace-hotbar');
+
+        const wood=getTotalItemCount('wood'), planks=getTotalItemCount('planks'), sticks=getTotalItemCount('sticks'),
+              stone=getTotalItemCount('stone'), iron=getTotalItemCount('iron_ingot'), diamonds=getTotalItemCount('diamond'),
+              wool=getTotalItemCount('wool'), coal=getTotalItemCount('coal_ore');
+
+        const canTorch = coal>=1&&sticks>=1;
+        ['p-btn-craft-torch','btn-craft-torch'].forEach(id=>document.getElementById(id).disabled=!canTorch);
+        ['p-btn-craft-planks','btn-craft-planks'].forEach(id=>document.getElementById(id).disabled=wood<1);
+        ['p-btn-craft-sticks','btn-craft-sticks'].forEach(id=>document.getElementById(id).disabled=planks<1);
+        ['p-btn-craft-table','btn-craft-table'].forEach(id=>document.getElementById(id).disabled=planks<4);
+        document.getElementById('btn-craft-chest').disabled=planks<8;
+        document.getElementById('btn-craft-bed').disabled=(wool<3||planks<3);
+        document.getElementById('btn-craft-pickaxe').disabled=(planks<3||sticks<2);
+        document.getElementById('btn-craft-stone-pickaxe').disabled=(stone<3||sticks<2);
+        document.getElementById('btn-craft-iron-pickaxe').disabled=(iron<3||sticks<2);
+        document.getElementById('btn-craft-diamond-pickaxe').disabled=(diamonds<3||sticks<2);
+        document.getElementById('btn-craft-wooden-axe').disabled=(planks<3||sticks<2);
+        document.getElementById('btn-craft-stone-axe').disabled=(stone<3||sticks<2);
+        document.getElementById('btn-craft-iron-axe').disabled=(iron<3||sticks<2);
+        document.getElementById('btn-craft-diamond-axe').disabled=(diamonds<3||sticks<2);
+        document.getElementById('btn-craft-furnace').disabled=stone<8;
+
+        renderSlotContent(document.getElementById('furnace-source-view'), furnaceSourceSlot);
+        renderSlotContent(document.getElementById('furnace-fuel-view'), furnaceFuelSlot);
+        renderSlotContent(document.getElementById('furnace-result-view'), furnaceResultSlot);
+        const validSmelt = (furnaceSourceSlot.type==='iron_ore'||furnaceSourceSlot.type==='sand'||furnaceSourceSlot.type==='raw_mutton')
+                        && (furnaceFuelSlot.type==='coal_ore'||furnaceFuelSlot.type==='planks');
+        document.getElementById('btn-smelt-execute').disabled = !validSmelt;
+    }
+
+    function renderSlotContent(slotEl, slotObject, isActive=false) {
+        if (!slotEl) return;
+        const iconEl=slotEl.querySelector('.block-icon'), labelEl=slotEl.querySelector('.label'), countEl=slotEl.querySelector('.count');
+        slotEl.classList.toggle('active', !!isActive);
+        if (slotObject && slotObject.type && slotObject.count>0) {
+            const data=blockUIData[slotObject.type]; labelEl.innerText=data.name; countEl.innerText=slotObject.count;
+            iconEl.style.display='block'; countEl.style.display='block';
+            if (slotObject.type.endsWith('pickaxe')) {
+                iconEl.style.cssText=`width:24px;height:24px;margin:0 auto 2px;border:none;border-radius:0px;background:linear-gradient(to bottom,${data.color} 0%,${data.color} 100%) 4px 0px/16px 6px no-repeat,linear-gradient(to bottom,#9c7a4c 0%,#9c7a4c 100%) 10px 6px/4px 18px no-repeat;display:block;`;
+            } else if (slotObject.type.endsWith('axe')) {
+                iconEl.style.cssText=`width:24px;height:24px;margin:0 auto 2px;border:none;border-radius:0px;background:linear-gradient(to bottom,${data.color} 0%,${data.color} 100%) 4px 2px/11px 8px no-repeat,linear-gradient(to bottom,#9c7a4c 0%,#9c7a4c 100%) 10px 6px/4px 18px no-repeat;display:block;`;
+            } else if (slotObject.type==='chest') {
+                iconEl.style.cssText=`width:20px;height:20px;margin:0 auto 2px;border:1px solid rgba(0,0,0,0.4);border-radius:3px;background:linear-gradient(to bottom,#ffd700 0%,#ffd700 100%) 9px 8px/2px 4px no-repeat,linear-gradient(to bottom,#5c3a21 0%,#5c3a21 100%) 0px 9px/20px 2px no-repeat,${data.color};display:block;`;
+            } else if (data.isStick) {
+                iconEl.style.cssText=`width:6px;height:22px;margin:0 auto 2px;border:1px solid rgba(0,0,0,0.4);border-radius:2px;background:${data.color};display:block;`;
+            } else if (data.isTorchItem) {
+                iconEl.style.cssText=`width:6px;height:22px;margin:0 auto 2px;border:1px solid rgba(0,0,0,0.4);border-radius:1px;background:linear-gradient(to bottom,#ff5500 0%,#ffcc00 30%,#5c3a21 30%,#5c3a21 100%);display:block;`;
+            } else if (data.isIngot) {
+                iconEl.style.cssText=`width:22px;height:12px;margin:6px auto 4px;border:1px solid #999;border-radius:2px;background:linear-gradient(135deg,#ffffff 0%,${data.color} 50%,#999999 100%);display:block;`;
+            } else if (data.isDiamondGem) {
+                iconEl.style.cssText=`width:16px;height:16px;margin:4px auto;border:none;border-radius:0px;background:${data.color};clip-path:polygon(50% 0%,100% 40%,50% 100%,0% 40%);display:block;`;
+            } else if (data.isGlass) {
+                iconEl.style.cssText=`width:20px;height:20px;margin:0 0 2px 0;border:1px solid #bbb;border-radius:3px;background:linear-gradient(135deg,rgba(255,255,255,0.8) 0%,rgba(200,230,255,0.4) 100%);display:block;`;
+            } else if (data.isMutton) {
+                iconEl.style.cssText=`width:18px;height:14px;margin:4px auto;border-radius:4px;border:1px solid #c06060;background:linear-gradient(to right,#ff9999 0%,#ff6666 70%,#ffffff 100%);display:block;`;
+            } else if (data.isCookedMutton) {
+                iconEl.style.cssText=`width:18px;height:14px;margin:4px auto;border-radius:4px;border:1px solid #5a2c20;background:linear-gradient(to right,#b5624c 0%,#873e2b 70%,#4a1d13 100%);display:block;`;
+            } else if (data.isWool) {
+                iconEl.style.cssText=`width:20px;height:20px;margin:0 0 2px 0;border:1px solid #bbb;border-radius:6px;background:radial-gradient(circle,#ffffff 0%,#e0e0e0 70%,#cccccc 100%);display:block;`;
+            } else if (data.isBed) {
+                iconEl.style.cssText=`width:24px;height:12px;margin:6px auto;border:1px solid #444;border-radius:2px;background:linear-gradient(to right,#ffffff 0%,#ffffff 30%,#ff3344 30%,#ff3344 100%);display:block;`;
+            } else {
+                iconEl.style.cssText=`width:20px;height:20px;margin:0 0 2px 0;border:1px solid rgba(0,0,0,0.4);border-radius:3px;background:${data.color};display:block;`;
+            }
+        } else { labelEl.innerText=''; iconEl.style.display='none'; countEl.style.display='none'; }
+    }
+
+    function renderGridContainer(containerEl, targetArray, arrayType) {
+        if (!containerEl) return; containerEl.innerHTML='';
+        targetArray.forEach((slotData, idx) => {
+            const slot=document.createElement('div'); slot.className='slot';
+            slot.innerHTML=`<div class="block-icon"></div><span class="label"></span><span class="count">0</span>`;
+            renderSlotContent(slot, slotData, false);
+            slot.addEventListener('click', () => handleInterSlotTransfer(arrayType, idx));
+            containerEl.appendChild(slot);
+        });
+    }
+
+    function handleInterSlotTransfer(sourceType, index) {
+        if (sourceType==='hotbar') transferToTargetArrays(hotbarSlots[index],[storageSlots]);
+        else if (sourceType==='storage') transferToTargetArrays(storageSlots[index],[hotbarSlots]);
+        else if (sourceType==='chest') transferToTargetArrays(chestSlots[index],[hotbarSlots,storageSlots]);
+        else if (sourceType==='chest-hotbar') transferToTargetArrays(hotbarSlots[index],[chestSlots]);
+        else if (sourceType==='chest-storage') transferToTargetArrays(storageSlots[index],[chestSlots]);
+        else if (sourceType==='furnace-hotbar') routeItemToFurnacePorts(hotbarSlots[index]);
+        else if (sourceType==='furnace-storage') routeItemToFurnacePorts(storageSlots[index]);
+    }
+
+    function routeItemToFurnacePorts(inventorySlot) {
+        if (!inventorySlot||!inventorySlot.type||inventorySlot.count<=0) return;
+        const type=inventorySlot.type, isFuel=(type==='coal_ore'||type==='planks'), isSource=(type==='iron_ore'||type==='sand'||type==='raw_mutton');
+        if (isSource && (furnaceSourceSlot.type===null||furnaceSourceSlot.type===type)) {
+            const tm=Math.min(inventorySlot.count,64-furnaceSourceSlot.count); furnaceSourceSlot.type=type; furnaceSourceSlot.count+=tm; inventorySlot.count-=tm; if(inventorySlot.count===0)inventorySlot.type=null;
+        } else if (isFuel && (furnaceFuelSlot.type===null||furnaceFuelSlot.type===type)) {
+            const tm=Math.min(inventorySlot.count,64-furnaceFuelSlot.count); furnaceFuelSlot.type=type; furnaceFuelSlot.count+=tm; inventorySlot.count-=tm; if(inventorySlot.count===0)inventorySlot.type=null;
+        }
+        updateInventoryUI();
+    }
+
+    document.getElementById('furnace-source-view').addEventListener('click', () => { if(furnaceSourceSlot.type){addItemToInventory(furnaceSourceSlot.type,furnaceSourceSlot.count);furnaceSourceSlot.type=null;furnaceSourceSlot.count=0;updateInventoryUI();}});
+    document.getElementById('furnace-fuel-view').addEventListener('click', () => { if(furnaceFuelSlot.type){addItemToInventory(furnaceFuelSlot.type,furnaceFuelSlot.count);furnaceFuelSlot.type=null;furnaceFuelSlot.count=0;updateInventoryUI();}});
+
+    function transferToTargetArrays(srcSlot, destArrays) {
+        if(!srcSlot||!srcSlot.type) return;
+        for(let destArray of destArrays) {
+            for(let d of destArray) { if(d.type===srcSlot.type&&d.count<64){const tot=d.count+srcSlot.count;if(tot<=64){d.count=tot;srcSlot.type=null;srcSlot.count=0;updateInventoryUI();return;}else{d.count=64;srcSlot.count=tot-64;}} }
+        }
+        for(let destArray of destArrays) { for(let d of destArray){ if(d.type===null){d.type=srcSlot.type;d.count=srcSlot.count;srcSlot.type=null;srcSlot.count=0;updateInventoryUI();return;} } }
+        updateInventoryUI();
+    }
+
+    // =====================================================================
+    //  THREE.JS SCENE SETUP
+    // =====================================================================
+    const scene = new THREE.Scene();
+    const daySkyColor = new THREE.Color(0x87CEEB); const nightSkyColor = new THREE.Color(0x1d2636);
+    scene.background = daySkyColor.clone();
+    const worldFog = new THREE.Fog(0x87CEEB, 18, 26); scene.fog = worldFog;
+
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    document.body.appendChild(renderer.domElement);
+
+    const ambientLight = new THREE.AmbientLight(0xe0e0e0, 0.8); scene.add(ambientLight);
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.6);
+    directionalLight.position.set(5, 15, 7.5).normalize(); scene.add(directionalLight);
+
+    // Apply settings (FOV + fog) from saved preferences
+    function applySettings() {
+        camera.fov = gameSettings.fov;
+        camera.updateProjectionMatrix();
+        const cfg = RENDER_DISTANCE_CONFIGS[gameSettings.renderDistance - 1];
+        LOAD_RADIUS_CHUNKS   = cfg.chunks;
+        UNLOAD_RADIUS_CHUNKS = cfg.chunks + 1;
+        worldFog.near = cfg.fogNear;
+        worldFog.far  = cfg.fogFar;
+    }
+
+    function checkIsNighttimeCurrently() {
+        const ct = totalPlaytimeElapsed % FULL_CYCLE_DURATION;
+        return ct >= (HALF_CYCLE_DURATION+TRANSITION_SPEED) && ct < (HALF_CYCLE_DURATION*2+TRANSITION_SPEED);
+    }
+
+    // =====================================================================
+    //  ZOMBIE SYSTEM
+    // =====================================================================
+    const zombieGroupArray = [];
+    const zombieSkinMat    = new THREE.MeshLambertMaterial({ color: 0x3a6b4c });
+    const zombieClothMat   = new THREE.MeshLambertMaterial({ color: 0x1d536b });
+    const ZOMBIE_W = 0.65, ZOMBIE_H = 1.95;
+
+    function spawnNightZombie(x, y, z) {
+        const g = new THREE.Group();
+        const legGeo=new THREE.BoxGeometry(0.22,0.75,0.22);
+        const lL=new THREE.Mesh(legGeo,zombieClothMat); lL.position.set(0.17,0.375,0); g.add(lL);
+        const lR=new THREE.Mesh(legGeo,zombieClothMat); lR.position.set(-0.17,0.375,0); g.add(lR);
+        const bodyMesh=new THREE.Mesh(new THREE.BoxGeometry(0.72,0.75,0.38),zombieClothMat); bodyMesh.position.y=1.125; g.add(bodyMesh);
+        const armGeo=new THREE.BoxGeometry(0.20,0.65,0.20);
+        const aL=new THREE.Mesh(armGeo,zombieSkinMat); aL.position.set(0.47,1.30,0.28); aL.rotation.x=-Math.PI/3; g.add(aL);
+        const aR=new THREE.Mesh(armGeo,zombieSkinMat); aR.position.set(-0.47,1.30,0.28); aR.rotation.x=-Math.PI/3; g.add(aR);
+        const headMesh=new THREE.Mesh(new THREE.BoxGeometry(0.45,0.45,0.45),zombieSkinMat); headMesh.position.set(0,1.725,0); g.add(headMesh);
+        g.position.set(x, y+0.05, z);
+        g.userData = { isZombie:true, health:6, velocity:new THREE.Vector3(), attackCooldown:0, onGround:false, jumpCooldown:0, blockedHorizontal:false, stuckTimer:0 };
+        let bail=0;
+        while(checkEntityCollision(g.position,ZOMBIE_W,ZOMBIE_H)&&bail<25){g.position.y+=1.0;bail++;}
+        scene.add(g); zombieGroupArray.push(g);
+    }
+
+    function triggerNightZombieInvasion() {
+        if (zombiesHaveSpawnedThisNight) return; zombiesHaveSpawnedThisNight=true;
+        const cp=controls.getObject().position; let cnt=0, loops=0;
+        while(cnt<5&&loops<100){loops++;
+            const ang=Math.random()*Math.PI*2, rad=14+Math.random()*8;
+            const rx=Math.floor(cp.x+Math.cos(ang)*rad), rz=Math.floor(cp.z+Math.sin(ang)*rad);
+            const sy=surfaceHeightMap[rx+','+rz]; if(sy!==undefined){spawnNightZombie(rx,sy,rz);cnt++;}}
+    }
+
+    function purgeNightZombies() {
+        if(!zombiesHaveSpawnedThisNight) return; zombiesHaveSpawnedThisNight=false;
+        for(let i=zombieGroupArray.length-1;i>=0;i--) scene.remove(zombieGroupArray[i]);
+        zombieGroupArray.length=0;
+    }
+
+    function processZombieAI(currentTime, delta) {
+        const pp=controls.getObject().position;
+        for(let i=zombieGroupArray.length-1;i>=0;i--) {
+            const z=zombieGroupArray[i], d=z.userData;
+            d.velocity.y -= 9.8*2.2*delta;
+            const toP=new THREE.Vector3(pp.x-z.position.x,0,pp.z-z.position.z), dist=toP.length();
+            let rx=0,rz2=0;
+            if(dist>0.5){const dir=toP.clone().normalize();rx=dir.x*2.5;rz2=dir.z*2.5;z.rotation.y=Math.atan2(dir.x,dir.z);}
+            const px0=z.position.x, pz0=z.position.z;
+            z.position.x+=rx*delta; z.position.z+=rz2*delta;
+            d.blockedHorizontal=false;
+            if(checkEntityCollision(z.position,ZOMBIE_W,ZOMBIE_H)){z.position.x=px0;z.position.z=pz0;d.blockedHorizontal=true;d.stuckTimer+=delta*1000;}else{d.stuckTimer=0;}
+            const pHigher=(pp.y-ZOMBIE_H*0.5)-z.position.y>0.6;
+            if(d.onGround&&currentTime>d.jumpCooldown&&(d.blockedHorizontal||d.stuckTimer>300||pHigher)){d.velocity.y=7.0;d.onGround=false;d.jumpCooldown=currentTime+700;d.stuckTimer=0;}
+            const py0=z.position.y; z.position.y+=d.velocity.y*delta;
+            if(checkEntityCollision(z.position,ZOMBIE_W,ZOMBIE_H)){z.position.y=py0;if(d.velocity.y<=0)d.onGround=true;d.velocity.y=0;}else{if(d.velocity.y<-0.5)d.onGround=false;}
+            const vdiff=Math.abs((pp.y-1.0)-z.position.y);
+            if(dist<1.5&&vdiff<2.2&&currentTime>d.attackCooldown){damagePlayer(1);d.attackCooldown=currentTime+1200;}
+        }
+    }
+
+    function handleGlobalDayNightCycle(delta) {
+        if (controls.isLocked && !isSleeping) totalPlaytimeElapsed += delta;
+        const ct = totalPlaytimeElapsed % FULL_CYCLE_DURATION;
+        if (ct<HALF_CYCLE_DURATION) globalNightLerpRatio=0;
+        else if (ct<HALF_CYCLE_DURATION+TRANSITION_SPEED) globalNightLerpRatio=(ct-HALF_CYCLE_DURATION)/TRANSITION_SPEED;
+        else if (ct<HALF_CYCLE_DURATION*2+TRANSITION_SPEED) globalNightLerpRatio=1.0;
+        else globalNightLerpRatio=1.0-((ct-(HALF_CYCLE_DURATION*2+TRANSITION_SPEED))/TRANSITION_SPEED);
+
+        if(globalNightLerpRatio>=0.8) triggerNightZombieInvasion();
+        else if(globalNightLerpRatio<=0.1) purgeNightZombies();
+
+        _tmpSky.copy(daySkyColor).lerp(nightSkyColor,globalNightLerpRatio);
+        scene.background.copy(_tmpSky); worldFog.color.copy(_tmpSky);
+        if(!isSleeping) document.body.style.backgroundColor='#'+_tmpSky.getHexString();
+        directionalLight.intensity=0.6*(1.0-globalNightLerpRatio)+0.05*globalNightLerpRatio;
+        const dA=new THREE.Color(0xe0e0e0), nA=new THREE.Color(0x222b3c);
+        ambientLight.color.copy(dA.clone().lerp(nA,globalNightLerpRatio));
+        ambientLight.intensity=0.8*(1.0-globalNightLerpRatio*0.4);
+        const tI=2.2*globalNightLerpRatio, fV=globalNightLerpRatio>0.05;
+        for(let i=0;i<torchObjects.length;i++){const td=torchObjects[i].userData;if(td.pointLightInstance)td.pointLightInstance.intensity=tI;if(td.flameMeshInstance)td.flameMeshInstance.visible=fV;}
+    }
+
+    function createPixelTexture(type) {
+        const canvas=document.createElement('canvas'); canvas.width=16; canvas.height=16;
+        const ctx=canvas.getContext('2d');
+        for(let x=0;x<16;x++){for(let y=0;y<16;y++){
+            let r,g,b; const noise=Math.random()*25-12.5;
+            if(type==='dirt'){r=134+noise;g=96+noise;b=67+noise;}
+            else if(type==='grass_top'){r=85+noise;g=122+noise;b=43+noise;}
+            else if(type==='grass_side'){if(y<4+Math.random()*2){r=85+noise;g=122+noise;b=43+noise;}else{r=134+noise;g=96+noise;b=67+noise;}}
+            else if(type==='wood'){const bl=(x===2||x===7||x===11||x===14)?-30:0;r=109+noise+bl;g=83+noise+bl;b=54+noise+bl;}
+            else if(type==='leaves'){r=50+noise;g=89+noise;b=26+noise;}
+            else if(type==='planks'){const pl=(y===4||y===9||y===14)?-25:0;r=191+noise+pl;g=163+noise+pl;b=122+noise+pl;}
+            else if(type==='table_top'){const ig=(x===0||x===15||y===0||y===15||x===8||y===8);r=ig?80+noise:150+noise;g=ig?50+noise:100+noise;b=ig?30+noise:60+noise;}
+            else if(type==='table_side'){const it=(x>3&&x<7&&y>4&&y<12)||(x>9&&x<13&&y>6&&y<10);r=it?90+noise:130+noise;g=it?60+noise:85+noise;b=it?40+noise:55+noise;}
+            else if(type==='stone'){r=120+noise;g=120+noise;b=120+noise;}
+            else if(type==='sand'){r=225+noise;g=205+noise;b=170+noise;}
+            else if(type==='water'){r=60+noise;g=130+noise;b=230+noise;}
+            else if(type==='glass'){const isF=(x===0||x===15||y===0||y===15||(x===y&&x>3&&x<12));r=isF?240:210;g=isF?248:235;b=255;}
+            else if(type==='coal_ore'){const io=(x>2&&x<6&&y>3&&y<7)||(x>10&&x<14&&y>9&&y<13);r=io?30:120+noise;g=io?30:120+noise;b=io?30:120+noise;}
+            else if(type==='iron_ore'){const io=(x>4&&x<9&&y>2&&y<6)||(x>10&&x<14&&y>6&&y<11);r=io?175+noise:120+noise;g=io?115+noise:120+noise;b=io?80+noise:120+noise;}
+            else if(type==='diamond_ore'){const io=(x>3&&x<7&&y>2&&y<6)||(x>9&&x<13&&y>9&&y<13)||(x===8&&y===6);r=io?0:120+noise;g=io?210+noise:120+noise;b=io?255:120+noise;}
+            else if(type==='furnace_front'){r=(x>3&&x<13&&y>8&&y<13)?40:90+noise;g=(x>3&&x<13&&y>8&&y<13)?35:90+noise;b=(x>3&&x<13&&y>8&&y<13)?35:90+noise;}
+            else if(type==='furnace_side'){const ib=(x===0||x===15||y===0||y===15);r=ib?70+noise:95+noise;g=ib?70+noise:95+noise;b=ib?70+noise:95+noise;}
+            else if(type==='chest_front'){if(x>6&&x<10&&y>6&&y<10){r=220;g=180;b=0;}else if(x===0||x===15||y===0||y===15||y===8){r=70+noise;g=45+noise;b=25+noise;}else{r=140+noise;g=90+noise;b=50+noise;}}
+            else if(type==='chest_side'){const ib=(x===0||x===15||y===0||y===15||y===8);r=ib?70+noise:140+noise;g=ib?45+noise:90+noise;b=ib?25+noise:50+noise;}
+            else if(type==='wool'){r=240+noise;g=240+noise;b=240+noise;}
+            ctx.fillStyle=`rgb(${Math.floor(r)},${Math.floor(g)},${Math.floor(b)})`;ctx.fillRect(x,y,1,1);
+        }}
+        const tex=new THREE.CanvasTexture(canvas); tex.magFilter=THREE.NearestFilter; tex.minFilter=THREE.NearestFilter; return tex;
+    }
+
+    const texDirt=createPixelTexture('dirt'),texGrassTop=createPixelTexture('grass_top'),texGrassSide=createPixelTexture('grass_side');
+    const texWood=createPixelTexture('wood'),texLeaves=createPixelTexture('leaves'),texPlanks=createPixelTexture('planks');
+    const texTableTop=createPixelTexture('table_top'),texTableSide=createPixelTexture('table_side'),texStone=createPixelTexture('stone');
+    const texCoalOre=createPixelTexture('coal_ore'),texIronOre=createPixelTexture('iron_ore'),texDiamondOre=createPixelTexture('diamond_ore');
+    const texFurnaceFront=createPixelTexture('furnace_front'),texFurnaceSide=createPixelTexture('furnace_side');
+    const texChestFront=createPixelTexture('chest_front'),texChestSide=createPixelTexture('chest_side');
+    const texSand=createPixelTexture('sand'),texWater=createPixelTexture('water'),texGlass=createPixelTexture('glass'),texWool=createPixelTexture('wool');
+
+    const matDirt=new THREE.MeshLambertMaterial({map:texDirt}),matWood=new THREE.MeshLambertMaterial({map:texWood});
+    const matLeaves=new THREE.MeshLambertMaterial({map:texLeaves}),matPlanks=new THREE.MeshLambertMaterial({map:texPlanks});
+    const matStone=new THREE.MeshLambertMaterial({map:texStone}),matCoalOre=new THREE.MeshLambertMaterial({map:texCoalOre});
+    const matIronOre=new THREE.MeshLambertMaterial({map:texIronOre}),matDiamondOre=new THREE.MeshLambertMaterial({map:texDiamondOre});
+    const matSand=new THREE.MeshLambertMaterial({map:texSand});
+    const matWater=new THREE.MeshLambertMaterial({map:texWater,transparent:true,opacity:0.6});
+    const matGlass=new THREE.MeshLambertMaterial({map:texGlass,transparent:true,opacity:0.4});
+    const matWool=new THREE.MeshLambertMaterial({map:texWool});
+    const matGrassBlockArray=[new THREE.MeshLambertMaterial({map:texGrassSide}),new THREE.MeshLambertMaterial({map:texGrassSide}),new THREE.MeshLambertMaterial({map:texGrassTop}),new THREE.MeshLambertMaterial({map:texDirt}),new THREE.MeshLambertMaterial({map:texGrassSide}),new THREE.MeshLambertMaterial({map:texGrassSide})];
+    const matTableBlockArray=[new THREE.MeshLambertMaterial({map:texTableSide}),new THREE.MeshLambertMaterial({map:texTableSide}),new THREE.MeshLambertMaterial({map:texTableTop}),new THREE.MeshLambertMaterial({map:texPlanks}),new THREE.MeshLambertMaterial({map:texTableSide}),new THREE.MeshLambertMaterial({map:texTableSide})];
+    const matFurnaceBlockArray=[new THREE.MeshLambertMaterial({map:texFurnaceSide}),new THREE.MeshLambertMaterial({map:texFurnaceSide}),new THREE.MeshLambertMaterial({map:texFurnaceSide}),new THREE.MeshLambertMaterial({map:texFurnaceSide}),new THREE.MeshLambertMaterial({map:texFurnaceFront}),new THREE.MeshLambertMaterial({map:texFurnaceSide})];
+    const matChestBlockArray=[new THREE.MeshLambertMaterial({map:texChestSide}),new THREE.MeshLambertMaterial({map:texChestSide}),new THREE.MeshLambertMaterial({map:texChestSide}),new THREE.MeshLambertMaterial({map:texChestSide}),new THREE.MeshLambertMaterial({map:texChestFront}),new THREE.MeshLambertMaterial({map:texChestSide})];
+
+    const blockGeo=new THREE.BoxGeometry(1,1,1);
+    const objects=[], torchObjects=[], bedObjects=[];
+    const droppedItems=[];
+
+    const spatialGrid=new Map();
+    function gridKey(x,y,z){return Math.round(x)+','+Math.round(y)+','+Math.round(z);}
+    function gridAdd(obj){spatialGrid.set(gridKey(obj.position.x,obj.position.y,obj.position.z),obj);}
+    function gridRemove(obj){spatialGrid.delete(gridKey(obj.position.x,obj.position.y,obj.position.z));}
+    function gridQuery(minX,maxX,minY,maxY,minZ,maxZ){
+        const result=[], x0=Math.floor(minX),x1=Math.ceil(maxX),y0=Math.floor(minY),y1=Math.ceil(maxY),z0=Math.floor(minZ),z1=Math.ceil(maxZ);
+        for(let ix=x0;ix<=x1;ix++) for(let iy=y0;iy<=y1;iy++) for(let iz=z0;iz<=z1;iz++){const o=spatialGrid.get(ix+','+iy+','+iz);if(o)result.push(o);}
+        return result;
+    }
+
+    function createBlock(x, y, z, material, type, group) {
+        const voxel=new THREE.Mesh(blockGeo,material); voxel.position.set(x,y,z); voxel.userData={type:type};
+        if(group) group.add(voxel); else scene.add(voxel);
+        objects.push(voxel);
+        if(type!=='torch'&&type!=='bed') gridAdd(voxel);
+        return voxel;
+    }
+
+    function spawnTorchLightMeshNode(x, y, z) {
+        const g=new THREE.Group(); g.position.set(x,y,z);
+        const handleMesh=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.55,0.12),new THREE.MeshLambertMaterial({map:texPlanks}));
+        handleMesh.position.y=-0.05; g.add(handleMesh);
+        const tipMesh=new THREE.Mesh(new THREE.BoxGeometry(0.14,0.12,0.14),new THREE.MeshLambertMaterial({color:0x222222}));
+        tipMesh.position.y=0.23; g.add(tipMesh);
+        const flameMesh=new THREE.Mesh(new THREE.BoxGeometry(0.16,0.16,0.16),new THREE.MeshBasicMaterial({color:0xffaa00}));
+        flameMesh.position.y=0.35; g.add(flameMesh);
+        const pl=new THREE.PointLight(0xffdd66,2.2*globalNightLerpRatio,14.0,1.2);
+        pl.position.set(0,0.4,0); g.add(pl);
+        flameMesh.visible=(globalNightLerpRatio>0.05);
+        g.userData={type:'torch',pointLightInstance:pl,flameMeshInstance:flameMesh};
+        scene.add(g); objects.push(g); torchObjects.push(g);
+    }
+
+    function spawnTwoBlockBed(footX, footY, footZ, dirX, dirZ) {
+        const headX=footX+dirX, headZ=footZ+dirZ;
+        let rot=0;
+        if(dirX===1)rot=-Math.PI/2; else if(dirX===-1)rot=Math.PI/2;
+        else if(dirZ===1)rot=Math.PI; else if(dirZ===-1)rot=0;
+        const g=new THREE.Group(); g.position.set((footX+headX)/2,footY,(footZ+headZ)/2); g.rotation.y=rot;
+        const blanketMat=new THREE.MeshLambertMaterial({color:0xff3344});
+        const footMesh=new THREE.Mesh(new THREE.BoxGeometry(0.94,0.38,0.96),blanketMat); footMesh.position.set(0,-0.05,0.48); g.add(footMesh);
+        const headMesh=new THREE.Mesh(new THREE.BoxGeometry(0.94,0.38,0.96),blanketMat); headMesh.position.set(0,-0.05,-0.48); g.add(headMesh);
+        const pillowMesh=new THREE.Mesh(new THREE.BoxGeometry(0.84,0.08,0.32),new THREE.MeshLambertMaterial({color:0xffffff})); pillowMesh.position.set(0,0.18,-0.76); g.add(pillowMesh);
+        const baseMesh=new THREE.Mesh(new THREE.BoxGeometry(0.96,0.12,1.96),new THREE.MeshLambertMaterial({map:texPlanks})); baseMesh.position.set(0,-0.3,0); g.add(baseMesh);
+        g.userData={type:'bed',footCoords:{x:footX,y:footY,z:footZ},headCoords:{x:headX,y:footY,z:headZ}};
+        scene.add(g); objects.push(g); bedObjects.push(g);
+    }
+
+    // Sheep
+    const sheepGroupArray=[];
+    const sheepWoolMat=new THREE.MeshLambertMaterial({color:0xf0f0f0}), sheepSkinMat=new THREE.MeshLambertMaterial({color:0xdfcfc7});
+    function spawnSheepEntity(x,y,z){
+        const g=new THREE.Group();
+        const body=new THREE.Mesh(new THREE.BoxGeometry(0.8,0.6,1.1),sheepWoolMat); body.position.y=0.4; g.add(body);
+        const head=new THREE.Mesh(new THREE.BoxGeometry(0.4,0.4,0.4),sheepSkinMat); head.position.set(0,0.6,0.6); g.add(head);
+        const legGeo=new THREE.BoxGeometry(0.18,0.4,0.18);
+        [[-.25,.1,.4],[.25,.1,.4],[-.25,.1,-.4],[.25,.1,-.4]].forEach(p=>{const leg=new THREE.Mesh(legGeo,sheepSkinMat);leg.position.set(...p);g.add(leg);});
+        g.position.set(x,y+1.5,z);
+        g.userData={isSheep:true,health:4,wanderDirection:new THREE.Vector3(Math.random()-.5,0,Math.random()-.5).normalize(),nextActionTime:0,velocity:new THREE.Vector3()};
+        let b=0; while(checkEntityCollision(g.position,0.8,0.9)&&b<10){g.position.y+=1.0;b++;}
+        scene.add(g); sheepGroupArray.push(g);
+    }
+
+    function checkEntityCollision(pos,width,height){
+        const hW=width/2,minX=pos.x-hW,maxX=pos.x+hW,minZ=pos.z-hW,maxZ=pos.z+hW,minY=pos.y,maxY=pos.y+height;
+        const nearby=gridQuery(minX-.5,maxX+.5,minY-.5,maxY+.5,minZ-.5,maxZ+.5);
+        for(let i=0;i<nearby.length;i++){const b=nearby[i];if(b.userData.type==='water'||b.userData.type==='torch')continue;const bx0=b.position.x-.5,bx1=b.position.x+.5,by0=b.position.y-.5,by1=b.position.y+.5,bz0=b.position.z-.5,bz1=b.position.z+.5;if(maxX>bx0&&minX<bx1&&maxY>by0&&minY<by1&&maxZ>bz0&&minZ<bz1)return true;}
+        for(let i=0;i<bedObjects.length;i++){const b=bedObjects[i];const fc=b.userData.footCoords,hc=b.userData.headCoords;if(maxX>fc.x-.5&&minX<fc.x+.5&&maxY>fc.y-.5&&minY<fc.y+0&&maxZ>fc.z-.5&&minZ<fc.z+.5)return true;if(maxX>hc.x-.5&&minX<hc.x+.5&&maxY>hc.y-.5&&minY<hc.y+0&&maxZ>hc.z-.5&&minZ<hc.z+.5)return true;}
+        return false;
+    }
+
+    function processSheepAI(currentTime, delta) {
+        sheepGroupArray.forEach(sheep => {
+            const d=sheep.userData, hl=Math.sqrt(d.velocity.x**2+d.velocity.z**2);
+            if(currentTime>d.nextActionTime&&hl<0.5){if(Math.random()<0.6){d.wanderDirection.set(Math.random()-.5,0,Math.random()-.5).normalize();d.nextActionTime=currentTime+1000+Math.random()*3000;}else{d.wanderDirection.set(0,0,0);d.nextActionTime=currentTime+500+Math.random()*2000;}}
+            d.velocity.y-=9.8*2.0*delta;
+            let mx=d.wanderDirection.x*1.5, mz=d.wanderDirection.z*1.5;
+            if(hl>0.01){mx+=d.velocity.x;mz+=d.velocity.z;d.velocity.x*=Math.pow(0.02,delta);d.velocity.z*=Math.pow(0.02,delta);}
+            if(Math.abs(mx)>0.01||Math.abs(mz)>0.01){const ox=sheep.position.x,oz=sheep.position.z;sheep.position.x+=mx*delta;sheep.position.z+=mz*delta;if(checkEntityCollision(sheep.position,0.8,0.9)){sheep.position.x=ox;sheep.position.z=oz;if(Math.abs(d.velocity.y)<0.01)d.velocity.y=5.0;d.velocity.x=0;d.velocity.z=0;}if(hl<0.5&&d.wanderDirection.lengthSq()>0)sheep.rotation.y=Math.atan2(d.wanderDirection.x,d.wanderDirection.z);else if(hl>=0.5)sheep.rotation.y=Math.atan2(d.velocity.x,d.velocity.z);}
+            const oy=sheep.position.y; sheep.position.y+=d.velocity.y*delta;
+            if(checkEntityCollision(sheep.position,0.8,0.9)){sheep.position.y=oy;d.velocity.y=0;}
+        });
+    }
+
+    function calculateProceduralHeight(x,z){
+        const ex=x+terrainSeedX, ez=z+terrainSeedZ;
+        return Math.floor(Math.sin(ex*.08)*Math.cos(ez*.08)*3.5+Math.sin(ex*.18+2.0)*Math.cos(ez*.15+1.0)*1.5+4);
+    }
+
+    function checkShouldCarveCaveBlock(x,y,z){
+        if(y<=-14) return false;
+        if(y>=calculateProceduralHeight(x,z)-1) return false;
+        const ex=x*.23+terrainSeedX,ey=y*.28+terrainSeedY,ez=z*.23+terrainSeedZ;
+        return (Math.sin(ex)*Math.cos(ey)*Math.sin(ez)+Math.cos(ex*.5)*Math.sin(ey*.6)*Math.cos(ez*.5))/2>0.32;
+    }
+
+    const surfaceHeightMap={};
+    const globalWaterLevel=1;
+
+    function isBeachColumn(x,z){
+        const ex=x+terrainSeedX*.7, ez=z+terrainSeedZ*.7;
+        return (Math.sin(ex*.055)*Math.cos(ez*.055)+Math.sin(ex*.022+5.3)*Math.cos(ez*.019+2.1)*0.5)<-0.55;
+    }
+
+    // Chunk system
+    const CHUNK_SIZE=16;
+    let LOAD_RADIUS_CHUNKS=2, UNLOAD_RADIUS_CHUNKS=3;
+    const BUILD_MS_PER_FRAME=4;
+    const chunkMap=new Map(), buildQueue=[];
+    function chunkKey(cx,cz){return cx+','+cz;}
+    function worldToChunk(wx,wz){return{cx:Math.floor(wx/CHUNK_SIZE),cz:Math.floor(wz/CHUNK_SIZE)};}
+    function chunkRng(cx,cz){let s=((cx*374761393)^(cz*1376312589)^((terrainSeedX*1000)|0))|0;return function(){s^=s<<13;s^=s>>17;s^=s<<5;return(s>>>0)/0x100000000;};}
+
+    function buildColumn(x,z,meshArr,rng){
+        let surfY=calculateProceduralHeight(x,z);
+        const d1x=x-lakeCenter1.x,d1z=z-lakeCenter1.y,distL1=Math.sqrt(d1x*d1x+d1z*d1z);
+        const d2x=x-lakeCenter2.x,d2z=z-lakeCenter2.y,distL2=totalLakesToBuild>1?Math.sqrt(d2x*d2x+d2z*d2z):999;
+        let isLake=false,isSand=false;
+        if(distL1<lakeRadiusMax){surfY=0;isSand=true;if(distL1<lakeRadiusMax-1.0)isLake=true;}
+        else if(distL2<lakeRadiusMax){surfY=0;isSand=true;if(distL2<lakeRadiusMax-1.0)isLake=true;}
+        else if(isBeachColumn(x,z)){surfY=Math.min(surfY,globalWaterLevel-1);isSand=true;if(surfY<globalWaterLevel-1)isLake=true;}
+        surfaceHeightMap[x+','+z]=surfY;
+        const topY=Math.max(surfY,globalWaterLevel);
+        for(let y=-14;y<=topY;y++){
+            if(y>surfY){if(y<=globalWaterLevel)meshArr.push(createBlock(x,y,z,matWater,'water'));continue;}
+            if(checkShouldCarveCaveBlock(x,y,z))continue;
+            let mat=matDirt,type='dirt';
+            if(y===surfY){if(isLake||isSand||surfY<=globalWaterLevel){mat=matSand;type='sand';}else{mat=matGrassBlockArray;type='grass';}}
+            else if(y>=surfY-2){if(isSand||surfY<=globalWaterLevel){mat=matSand;type='sand';}else{mat=matDirt;type='dirt';}}
+            else{const r=rng();if(y>=-14&&y<=-9&&r<0.015){mat=matDiamondOre;type='diamond_ore';}else if(y<=-2&&r<0.07){mat=matCoalOre;type='coal_ore';}else if(y<=-3&&r>=0.07&&r<0.11){mat=matIronOre;type='iron_ore';}else{mat=matStone;type='stone';}}
+            meshArr.push(createBlock(x,y,z,mat,type));
+        }
+        if(surfY>globalWaterLevel+1&&!isSand&&rng()<0.04&&(Math.abs(x)>3||Math.abs(z)>3)){
+            const ts=surfY+1,th=3;
+            for(let y=ts;y<ts+th;y++)meshArr.push(createBlock(x,y,z,matWood,'wood'));
+            for(let lx=-1;lx<=1;lx++)for(let lz2=-1;lz2<=1;lz2++)for(let ly=ts+th-1;ly<=ts+th;ly++){if(lx===0&&lz2===0&&ly===ts+th-1)continue;meshArr.push(createBlock(x+lx,ly,z+lz2,matLeaves,'leaves'));}
+            meshArr.push(createBlock(x,ts+th+1,z,matLeaves,'leaves'));
+        }
+    }
+
+    function queueChunk(cx,cz){
+        const key=chunkKey(cx,cz); if(chunkMap.has(key))return;
+        chunkMap.set(key,{meshes:[],state:'queued'});
+        const rng=chunkRng(cx,cz),cols=[];
+        for(let lx=0;lx<CHUNK_SIZE;lx++) for(let lz=0;lz<CHUNK_SIZE;lz++) cols.push({x:cx*CHUNK_SIZE+lx,z:cz*CHUNK_SIZE+lz,rng});
+        buildQueue.push({key,cx,cz,cols,meshes:[],colIdx:0});
+    }
+
+    function unloadDistantChunks(pCX,pCZ){
+        const toRemove=new Set(),keysToDelete=[];
+        for(const [key,chunk] of chunkMap){
+            if(chunk.state!=='done')continue;
+            const comma=key.indexOf(','),dcx=Math.abs(parseInt(key.slice(0,comma))-pCX),dcz=Math.abs(parseInt(key.slice(comma+1))-pCZ);
+            if(dcx>UNLOAD_RADIUS_CHUNKS||dcz>UNLOAD_RADIUS_CHUNKS){chunk.meshes.forEach(m=>toRemove.add(m));keysToDelete.push(key);}
+        }
+        if(toRemove.size===0)return;
+        toRemove.forEach(mesh=>{scene.remove(mesh);gridRemove(mesh);});
+        let wi=0; for(let ri=0;ri<objects.length;ri++){if(!toRemove.has(objects[ri]))objects[wi++]=objects[ri];}
+        objects.length=wi;
+        keysToDelete.forEach(k=>chunkMap.delete(k));
+    }
+
+    function processChunkBuildQueue(){
+        if(buildQueue.length===0)return;
+        const deadline=performance.now()+BUILD_MS_PER_FRAME;
+        while(buildQueue.length>0&&performance.now()<deadline){
+            const job=buildQueue[0],chunk=chunkMap.get(job.key);
+            while(job.colIdx<job.cols.length&&performance.now()<deadline){const col=job.cols[job.colIdx++];buildColumn(col.x,col.z,job.meshes,col.rng);}
+            if(job.colIdx>=job.cols.length){chunk.meshes=job.meshes;chunk.state='done';buildQueue.shift();
+                if(Math.random()<0.25){const rx=job.cx*CHUNK_SIZE+Math.floor(Math.random()*CHUNK_SIZE),rz=job.cz*CHUNK_SIZE+Math.floor(Math.random()*CHUNK_SIZE);const sy=surfaceHeightMap[rx+','+rz];if(sy!==undefined&&sy>globalWaterLevel+1)spawnSheepEntity(rx,sy,rz);}
+            }
+        }
+    }
+
+    let _lastPCX=99999, _lastPCZ=99999;
+    function updateChunkLoading(px,pz){
+        const {cx:pCX,cz:pCZ}=worldToChunk(px,pz);
+        if(pCX===_lastPCX&&pCZ===_lastPCZ)return; _lastPCX=pCX;_lastPCZ=pCZ;
+        for(let dx=-LOAD_RADIUS_CHUNKS;dx<=LOAD_RADIUS_CHUNKS;dx++) for(let dz=-LOAD_RADIUS_CHUNKS;dz<=LOAD_RADIUS_CHUNKS;dz++) queueChunk(pCX+dx,pCZ+dz);
+        unloadDistantChunks(pCX,pCZ);
+    }
+
+    // =====================================================================
+    //  GENERATE WORLD
+    // =====================================================================
+    function generateWorld(continueFromSave, saveData) {
+        for(let i=objects.length-1;i>=0;i--){scene.remove(objects[i]);}
+        objects.length=0; torchObjects.length=0; bedObjects.length=0; spatialGrid.clear();
+        chunkMap.clear(); buildQueue.length=0; _lastPCX=99999; _lastPCZ=99999;
+        sheepGroupArray.length=0; zombieGroupArray.length=0;
+        playerPlacedBlocks.clear(); playerRemovedKeys.clear();
+        playerPlacedTorches.length=0; playerPlacedBeds.length=0;
+
+        if (continueFromSave && saveData && saveData.seeds) {
+            terrainSeedX = saveData.seeds.x;
+            terrainSeedY = saveData.seeds.y;
+            terrainSeedZ = saveData.seeds.z;
+            totalLakesToBuild = saveData.seeds.totalLakes;
+            lakeCenter1 = new THREE.Vector2(saveData.seeds.lake1x, saveData.seeds.lake1z);
+            lakeCenter2 = new THREE.Vector2(saveData.seeds.lake2x, saveData.seeds.lake2z);
+        } else if (!isMultiplayer) {
+            terrainSeedX = Math.random() * 10000;
+            terrainSeedY = Math.random() * 10000;
+            terrainSeedZ = Math.random() * 10000;
+            totalLakesToBuild = Math.random() < 0.3 ? 1 : 2;
+            lakeCenter1 = new THREE.Vector2((Math.random()*20)-10, (Math.random()*20)-10);
+            lakeCenter2 = new THREE.Vector2((Math.random()*20)-10, (Math.random()*20)-10);
+            if (totalLakesToBuild > 1) {
+                let esc=0;
+                while(lakeCenter2.distanceTo(lakeCenter1)<28.0&&esc<100){lakeCenter2.x=-lakeCenter1.x+((Math.random()*8)-4);lakeCenter2.y=-lakeCenter1.y+((Math.random()*8)-4);esc++;}
+            }
+        }
+
+        // Sync build initial chunks (cap at radius 2 for performance)
+        const initRadius = Math.min(LOAD_RADIUS_CHUNKS, 2);
+        for(let dx=-initRadius;dx<=initRadius;dx++)
+            for(let dz=-initRadius;dz<=initRadius;dz++) queueChunk(dx,dz);
+        while(buildQueue.length>0){
+            const job=buildQueue[0],chunk=chunkMap.get(job.key);
+            while(job.colIdx<job.cols.length){const col=job.cols[job.colIdx++];buildColumn(col.x,col.z,job.meshes,col.rng);}
+            chunk.meshes=job.meshes;chunk.state='done';buildQueue.shift();
+        }
+        // Apply server world state in multiplayer (placed/removed blocks from other sessions)
+        if (isMultiplayer && serverInitData) {
+            for (const key of (serverInitData.removedKeys || [])) {
+                const block = spatialGrid.get(key);
+                if (block) {
+                    scene.remove(block); gridRemove(block);
+                    const idx = objects.indexOf(block);
+                    if (idx !== -1) objects.splice(idx, 1);
+                }
+                playerRemovedKeys.add(key);
+            }
+            for (const [key, b] of Object.entries(serverInitData.placedBlocks || {})) {
+                if (b.type === 'torch') {
+                    if (!playerPlacedTorches.find(t => t.x === b.x && t.y === b.y && t.z === b.z)) {
+                        spawnTorchLightMeshNode(b.x, b.y, b.z);
+                        playerPlacedTorches.push({ x: b.x, y: b.y, z: b.z });
+                    }
+                } else if (!spatialGrid.get(key)) {
+                    const mat = getMaterialForType(b.type);
+                    if (mat) {
+                        createBlock(b.x, b.y, b.z, mat, b.type);
+                        playerPlacedBlocks.set(key, b);
+                    }
+                }
+            }
+            serverInitData = null;
+        }
+
+        for(let i=0;i<8;i++) spawnRandomWorldSheep();
+
+        let spawnY = Math.max(globalWaterLevel, calculateProceduralHeight(0,0)) + 3;
+        controls.getObject().position.set(0, spawnY, 0);
+        lastPosition2D.set(0, 0);
+
+        if (continueFromSave && saveData) {
+            applyWorldChanges(saveData);
+            applyPlayerState(saveData);
+        } else {
+            playerHealth=MAX_HEALTH; playerHunger=MAX_HUNGER;
+            hotbarSlots.forEach(s=>{s.type=null;s.count=0;});
+            storageSlots.forEach(s=>{s.type=null;s.count=0;});
+            chestSlots.forEach(s=>{s.type=null;s.count=0;});
+            invincibilityEndTime = performance.now() + 2000;
+            updateInventoryUI(); updateHUDVisuals();
+        }
+
+        gameStarted = true;
+    }
+    function getDropMaterial(type) {
+        const mat = getMaterialForType(type);
+        if (mat) return Array.isArray(mat) ? mat[0] : mat;
+        const data = blockUIData[type];
+        return new THREE.MeshLambertMaterial({ color: data ? data.color : '#ffffff' });
+    }
+
+    function spawnDroppedItem(type, x, y, z) {
+        const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.3, 0.3), getDropMaterial(type));
+        const group = new THREE.Group();
+        group.add(mesh);
+        group.position.set(x, y + 0.7, z);
+        group.userData = { isDroppedItem:true, type:type, spawnTime:performance.now(), velocityY:1.5, groundY:undefined, bobOffset:Math.random()*Math.PI*2 };
+        scene.add(group);
+        droppedItems.push(group);
+    }
+
+    function updateDroppedItems(delta, currentTime) {
+        if (!controls.isLocked) return;
+        const pp = controls.getObject().position;
+        for (let i = droppedItems.length - 1; i >= 0; i--) {
+            const item = droppedItems[i];
+            const d = item.userData;
+            const ix = item.position.x, iz = item.position.z;
+
+            // If resting on ground, check every frame if that ground still exists
+            if (d.groundY !== undefined) {
+                const support = gridQuery(ix-0.15, ix+0.15, d.groundY-0.7, d.groundY+0.05, iz-0.15, iz+0.15)
+                    .filter(b => b.userData.type !== 'water' && b.userData.type !== 'torch')
+                    .some(b => b.position.y + 0.5 >= d.groundY - 0.05);
+                if (!support) {
+                    // Block beneath was mined, start falling again
+                    d.groundY = undefined;
+                    d.velocityY = 0;
+                } else {
+                    item.position.y = d.groundY + Math.sin(currentTime * 0.003 + d.bobOffset) * 0.08;
+                    item.children[0].rotation.y += delta * 2.5;
+                    if (currentTime - d.spawnTime > 500) {
+                        const dx=pp.x-ix, dz=pp.z-iz, dy=(pp.y-0.8)-item.position.y;
+                        if (Math.sqrt(dx*dx+dy*dy+dz*dz) < 1.5) {
+                            addItemToInventory(d.type, 1);
+                            scene.remove(item);
+                            droppedItems.splice(i, 1);
+                        }
+                    }
+                    continue;
+                }
+            }
+
+            // Apply gravity
+            d.velocityY -= 9.8 * 2.5 * delta;
+            const newY = item.position.y + d.velocityY * delta;
+
+            // Check for landing on a block
+            const nearBlocks = gridQuery(ix-0.15, ix+0.15, newY-0.25, item.position.y+0.1, iz-0.15, iz+0.15);
+            let landed = false;
+            let bestTop = -Infinity;
+            for (let b of nearBlocks) {
+                if (b.userData.type === 'water' || b.userData.type === 'torch') continue;
+                const bTop = b.position.y + 0.5;
+                if (bTop <= item.position.y + 0.15 && newY <= bTop + 0.1 && bTop > bestTop) {
+                    bestTop = bTop;
+                    landed = true;
+                }
+            }
+
+            if (landed) {
+                d.groundY = bestTop + 0.15;
+                d.velocityY = 0;
+                item.position.y = d.groundY;
+            } else {
+                item.position.y = newY;
+            }
+
+            if (item.position.y < -14) {
+                scene.remove(item);
+                droppedItems.splice(i, 1);
+                continue;
+            }
+
+            item.children[0].rotation.y += delta * 2.5;
+
+            if (currentTime - d.spawnTime > 500) {
+                const dx=pp.x-ix, dz=pp.z-iz, dy=(pp.y-0.8)-item.position.y;
+                if (Math.sqrt(dx*dx+dy*dy+dz*dz) < 1.5) {
+                    addItemToInventory(d.type, 1);
+                    scene.remove(item);
+                    droppedItems.splice(i, 1);
+                }
+            }
+        }
+    }
+    // ── Remote player models ───────────────────────────────────────────────────────
+    function createRemotePlayerModel(id, name, x, y, z, yaw) {
+        if (remotePlayers.has(id)) return;
+        const skinMat  = new THREE.MeshLambertMaterial({ color: 0xd4a574 });
+        const shirtMat = new THREE.MeshLambertMaterial({ color: 0x4a7fc1 });
+        const pantsMat = new THREE.MeshLambertMaterial({ color: 0x2d4a7a });
+        const group = new THREE.Group();
+        const legGeo = new THREE.BoxGeometry(0.22, 0.75, 0.22);
+        const lL = new THREE.Mesh(legGeo, pantsMat); lL.position.set( 0.17, 0.375, 0); group.add(lL);
+        const lR = new THREE.Mesh(legGeo, pantsMat); lR.position.set(-0.17, 0.375, 0); group.add(lR);
+        const body = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.75, 0.38), shirtMat); body.position.y = 1.125; group.add(body);
+        const armGeo = new THREE.BoxGeometry(0.20, 0.65, 0.20);
+        const aL = new THREE.Mesh(armGeo, skinMat); aL.position.set( 0.47, 1.125, 0); group.add(aL);
+        const aR = new THREE.Mesh(armGeo, skinMat); aR.position.set(-0.47, 1.125, 0); group.add(aR);
+        const headMesh = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.45, 0.45), skinMat); headMesh.position.set(0, 1.725, 0); group.add(headMesh);
+        // Name tag sprite
+        const nc = document.createElement('canvas'); nc.width = 256; nc.height = 64;
+        const nctx = nc.getContext('2d');
+        nctx.fillStyle = 'rgba(0,0,0,0.55)'; nctx.fillRect(4, 4, 248, 56);
+        nctx.fillStyle = '#ffffff'; nctx.font = 'bold 30px Arial'; nctx.textAlign = 'center';
+        nctx.fillText(name.slice(0, 16), 128, 42);
+        const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(nc), transparent: true, depthTest: false }));
+        spr.position.set(0, 2.5, 0); spr.scale.set(2, 0.5, 1); group.add(spr);
+        group.position.set(x, y - 1.6, z);
+        group.rotation.y = yaw || 0;
+        scene.add(group);
+        remotePlayers.set(id, { group, name, targetX: x, targetY: y, targetZ: z, targetYaw: yaw || 0, currentX: x, currentY: y, currentZ: z, currentYaw: yaw || 0 });
+    }
+
+    function updateRemotePlayerTarget(id, x, y, z, yaw) {
+        const rp = remotePlayers.get(id);
+        if (!rp) return;
+        rp.targetX = x; rp.targetY = y; rp.targetZ = z; rp.targetYaw = yaw;
+    }
+
+    function removeRemotePlayer(id) {
+        const rp = remotePlayers.get(id);
+        if (!rp) return;
+        scene.remove(rp.group);
+        remotePlayers.delete(id);
+    }
+
+    function interpolateRemotePlayers(delta) {
+        const f = Math.min(1, delta * 15);
+        for (const [, rp] of remotePlayers) {
+            rp.currentX += (rp.targetX - rp.currentX) * f;
+            rp.currentY += (rp.targetY - rp.currentY) * f;
+            rp.currentZ += (rp.targetZ - rp.currentZ) * f;
+            let dy = rp.targetYaw - rp.currentYaw;
+            if (dy >  Math.PI) dy -= Math.PI * 2;
+            if (dy < -Math.PI) dy += Math.PI * 2;
+            rp.currentYaw += dy * f;
+            rp.group.position.set(rp.currentX, rp.currentY - 1.6, rp.currentZ);
+            rp.group.rotation.y = rp.currentYaw;
+        }
+    }
+
+    // ── WebSocket / server message handler ────────────────────────────────────────
+    function handleServerMessage(msg, resolveInit) {
+        switch (msg.type) {
+            case 'init': {
+                myPlayerId = msg.playerId;
+                if (msg.seeds) {
+                    terrainSeedX      = msg.seeds.x;
+                    terrainSeedY      = msg.seeds.y;
+                    terrainSeedZ      = msg.seeds.z;
+                    totalLakesToBuild = msg.seeds.totalLakes;
+                    lakeCenter1       = new THREE.Vector2(msg.seeds.lake1x, msg.seeds.lake1z);
+                    lakeCenter2       = new THREE.Vector2(msg.seeds.lake2x, msg.seeds.lake2z);
+                }
+                serverInitData = msg;
+                for (const p of (msg.players || [])) {
+                    createRemotePlayerModel(p.id, p.name, p.x, p.y, p.z, p.yaw || 0);
+                }
+                if (resolveInit) resolveInit(msg);
+                break;
+            }
+            case 'player_join': {
+                if (msg.id !== myPlayerId) createRemotePlayerModel(msg.id, msg.name, msg.x, msg.y, msg.z, msg.yaw || 0);
+                break;
+            }
+            case 'player_leave': {
+                removeRemotePlayer(msg.id);
+                break;
+            }
+            case 'player_move': {
+                if (msg.id !== myPlayerId) updateRemotePlayerTarget(msg.id, msg.x, msg.y, msg.z, msg.yaw || 0);
+                break;
+            }
+            case 'block_placed': {
+                if (msg.playerId === myPlayerId) return;
+                const key = gridKey(msg.x, msg.y, msg.z);
+                if (msg.blockType === 'torch') {
+                    if (!playerPlacedTorches.find(t => t.x === msg.x && t.y === msg.y && t.z === msg.z)) {
+                        spawnTorchLightMeshNode(msg.x, msg.y, msg.z);
+                        playerPlacedTorches.push({ x: msg.x, y: msg.y, z: msg.z });
+                    }
+                } else if (!spatialGrid.get(key)) {
+                    const mat = getMaterialForType(msg.blockType);
+                    if (mat) {
+                        createBlock(msg.x, msg.y, msg.z, mat, msg.blockType);
+                        playerPlacedBlocks.set(key, { type: msg.blockType, x: msg.x, y: msg.y, z: msg.z });
+                    }
+                }
+                break;
+            }
+            case 'block_broken': {
+                if (msg.playerId === myPlayerId) return;
+                const key = gridKey(msg.x, msg.y, msg.z);
+                // Handle torch
+                const ti = torchObjects.findIndex(t => Math.abs(t.position.x - msg.x) < 0.5 && Math.abs(t.position.y - msg.y) < 0.5 && Math.abs(t.position.z - msg.z) < 0.5);
+                if (ti !== -1) {
+                    scene.remove(torchObjects[ti]); torchObjects.splice(ti, 1);
+                    const ti2 = playerPlacedTorches.findIndex(t => t.x === msg.x && t.y === msg.y && t.z === msg.z);
+                    if (ti2 !== -1) playerPlacedTorches.splice(ti2, 1);
+                    return;
+                }
+                // Handle regular block
+                const block = spatialGrid.get(key);
+                if (block) {
+                    scene.remove(block); gridRemove(block);
+                    const idx = objects.indexOf(block);
+                    if (idx !== -1) objects.splice(idx, 1);
+                    playerPlacedBlocks.delete(key);
+                    playerRemovedKeys.add(key);
+                }
+                break;
+            }
+        }
+    }
+
+    function connectMultiplayer(address, name, seeds) {
+        return new Promise((resolve, reject) => {
+            const url = address.startsWith('ws') ? address : `ws://${address}`;
+            try { ws = new WebSocket(url); } catch(e) { reject(e); return; }
+            const timeout = setTimeout(() => { ws.close(); reject(new Error('Connection timed out')); }, 8000);
+            ws.onopen = () => {
+                ws.send(JSON.stringify({
+                    type: 'join', name, seeds,
+                    x: 0, y: 10, z: 0,
+                    health: playerHealth, hunger: playerHunger,
+                    hotbar:  hotbarSlots.map(s => ({ type: s.type, count: s.count })),
+                    storage: storageSlots.map(s => ({ type: s.type, count: s.count }))
+                }));
+            };
+            ws.onmessage = (ev) => {
+                let m; try { m = JSON.parse(ev.data); } catch { return; }
+                if (m.type === 'init') {
+                    clearTimeout(timeout);
+                    handleServerMessage(m, resolve);
+                    ws.onmessage = (ev2) => {
+                        let m2; try { m2 = JSON.parse(ev2.data); } catch { return; }
+                        handleServerMessage(m2, null);
+                    };
+                }
+            };
+            ws.onclose = () => {
+                clearTimeout(timeout);
+                if (gameStarted && isMultiplayer) {
+                    for (const [rid] of remotePlayers) removeRemotePlayer(rid);
+                    remotePlayers.clear();
+                    alert('Disconnected from server.');
+                    quitToTitle();
+                } else {
+                    reject(new Error('Connection closed before init'));
+                }
+            };
+            ws.onerror = () => {
+                clearTimeout(timeout);
+                reject(new Error('WebSocket error — is the server running?'));
+            };
+        });
+    }
+    function spawnRandomWorldSheep(){
+        let att=0;
+        while(att<50){att++;const rx=Math.floor(Math.random()*40)-20,rz=Math.floor(Math.random()*40)-20;const sy=surfaceHeightMap[rx+','+rz];if(sy!==undefined&&sy>globalWaterLevel+1){spawnSheepEntity(rx,sy,rz);return;}}
+    }
+
+    // PointerLockControls
+    const controls = new THREE.PointerLockControls(camera, document.body);
+    const instructions = document.getElementById('instructions');
+
+    camera.position.set(5, 8, 5); camera.lookAt(0, 5, 0);
+
+    controls.addEventListener('lock', () => {
+        instructions.style.display = 'none';
+        hidePauseMenu();
+        storageScreenEl.style.display='none'; craftingScreenEl.style.display='none';
+        furnaceScreenEl.style.display='none'; chestScreenEl.style.display='none';
+        isUIOpen = false;
+    });
+
+    controls.addEventListener('unlock', () => {
+        moveForward=false; moveBackward=false; moveLeft=false; moveRight=false;
+        // Show pause menu only when the game is active and no other UI is open
+        if (!isUIOpen && !isSleeping && gameStarted && settingsMenuEl.style.display !== 'flex') {
+            showPauseMenu();
+        }
+        resetMiningState();
+    });
+
+    scene.add(controls.getObject());
+
+    function toggleInventoryMenu(){
+        if(isSleeping || isGamePaused || !gameStarted)return;
+        if(isUIOpen){controls.lock();}
+        else{isUIOpen=true;controls.unlock();instructions.style.display='none';storageScreenEl.style.display='block';updateInventoryUI();}
+    }
+    function openWorkbenchMenu(){isUIOpen=true;controls.unlock();instructions.style.display='none';craftingScreenEl.style.display='block';updateInventoryUI();}
+    function openFurnaceMenu(){isUIOpen=true;controls.unlock();instructions.style.display='none';furnaceScreenEl.style.display='block';updateInventoryUI();}
+    function openChestMenu(){isUIOpen=true;controls.unlock();instructions.style.display='none';chestScreenEl.style.display='block';updateInventoryUI();}
+
+    function triggerBedSleepTransition(){
+        isSleeping=true;resetMiningState();controls.unlock();instructions.style.display='none';
+        const ov=document.getElementById('sleep-overlay');ov.style.pointerEvents='auto';ov.style.opacity='1';
+        setTimeout(()=>{const ci=Math.floor(totalPlaytimeElapsed/FULL_CYCLE_DURATION);totalPlaytimeElapsed=(ci+1)*FULL_CYCLE_DURATION;handleGlobalDayNightCycle(0);setTimeout(()=>{ov.style.opacity='0';ov.style.pointerEvents='none';isSleeping=false;controls.lock();},1000);},1200);
+    }
+
+    // =====================================================================
+    //  PLAYER HEIGHT CONSTANTS  (changed from const to support crouching)
+    // =====================================================================
+    const playerRadius = 0.3;
+    const STAND_HEIGHT = 1.6;
+    const CROUCH_HEIGHT = 1.25;
+    let playerHeightOffset = STAND_HEIGHT;
+
+    function checkCollision(pos){
+        const pMinX=pos.x-playerRadius,pMaxX=pos.x+playerRadius,pMinZ=pos.z-playerRadius,pMaxZ=pos.z+playerRadius,pMinY=pos.y-playerHeightOffset,pMaxY=pos.y+0.2;
+        const nearby=gridQuery(pMinX-.5,pMaxX+.5,pMinY-.5,pMaxY+.5,pMinZ-.5,pMaxZ+.5);
+        for(let i=0;i<nearby.length;i++){const b=nearby[i];if(b.userData.type==='water'||b.userData.type==='torch')continue;const bx0=b.position.x-.5,bx1=b.position.x+.5,by0=b.position.y-.5,by1=b.position.y+.5,bz0=b.position.z-.5,bz1=b.position.z+.5;if(pMaxX>bx0&&pMinX<bx1&&pMaxY>by0&&pMinY<by1&&pMaxZ>bz0&&pMinZ<bz1)return true;}
+        for(let i=0;i<bedObjects.length;i++){const b=bedObjects[i];const fc=b.userData.footCoords,hc=b.userData.headCoords;if(pMaxX>fc.x-.5&&pMinX<fc.x+.5&&pMaxY>fc.y-.5&&pMinY<fc.y+0&&pMaxZ>fc.z-.5&&pMinZ<fc.z+.5)return true;if(pMaxX>hc.x-.5&&pMinX<hc.x+.5&&pMaxY>hc.y-.5&&pMinY<hc.y+0&&pMaxZ>hc.z-.5&&pMinZ<hc.z+.5)return true;}
+        return false;
+    }
+
+    // =====================================================================
+    //  SNEAK EDGE DETECTION
+    //  Checks if there is solid ground directly beneath the player's feet.
+    //  Used to prevent falling off edges while sneaking, like Minecraft.
+    // =====================================================================
+    function hasBlockBelow(pos) {
+        const feetY = pos.y - playerHeightOffset;
+        // Shrink the horizontal check slightly inward so the player can still
+        // walk right up to the edge without immediately getting blocked
+        const inset = 0.05;
+        const minX = pos.x - playerRadius + inset;
+        const maxX = pos.x + playerRadius - inset;
+        const minZ = pos.z - playerRadius + inset;
+        const maxZ = pos.z + playerRadius - inset;
+        // Look for any solid block whose top face is within 0.6 units below feet
+        const nearby = gridQuery(minX - 0.5, maxX + 0.5, feetY - 1.1, feetY + 0.1, minZ - 0.5, maxZ + 0.5);
+        for (let i = 0; i < nearby.length; i++) {
+            const b = nearby[i];
+            if (b.userData.type === 'water' || b.userData.type === 'torch') continue;
+            const bTopY = b.position.y + 0.5;
+            // Block top must be below feet and within 0.6 units
+            if (bTopY <= feetY + 0.05 && bTopY >= feetY - 0.6) {
+                // Block must horizontally overlap the inset footprint
+                const bx0 = b.position.x - 0.5, bx1 = b.position.x + 0.5;
+                const bz0 = b.position.z - 0.5, bz1 = b.position.z + 0.5;
+                if (maxX > bx0 && minX < bx1 && maxZ > bz0 && minZ < bz1) return true;
+            }
+        }
+        return false;
+    }
+
+    function isSpaceOccupied(x,y,z){
+        const b=spatialGrid.get(gridKey(x,y,z));if(b&&b.userData.type!=='water')return true;
+        for(let i=0;i<torchObjects.length;i++){const t=torchObjects[i];if(Math.floor(t.position.x+.5)===x&&Math.floor(t.position.y+.5)===y&&Math.floor(t.position.z+.5)===z)return true;}
+        for(let i=0;i<bedObjects.length;i++){const b=bedObjects[i];if((b.userData.footCoords.x===x&&b.userData.footCoords.y===y&&b.userData.footCoords.z===z)||(b.userData.headCoords.x===x&&b.userData.headCoords.y===y&&b.userData.headCoords.z===z))return true;}
+        return false;
+    }
+
+    const raycaster=new THREE.Raycaster(), center=new THREE.Vector2(0,0), MAX_REACH=4.5;
+    function resetMiningState(){isMiningRequested=false;miningTargetBlock=null;miningStartTime=0;uiMiningWarning.style.display='none';if(visualCrackOverlayMesh){scene.remove(visualCrackOverlayMesh);visualCrackOverlayMesh=null;}}
+
+    document.addEventListener('mousedown', (event) => {
+        if (!controls.isLocked || isUIOpen || isSleeping || !gameStarted) return;
+        const activeSlot = hotbarSlots[activeSlotIndex];
+
+        if (event.button === 0) {
+            raycaster.setFromCamera(center, camera);
+            const mobMeshes=[];
+            sheepGroupArray.forEach(g=>g.children.forEach(c=>{c.userData.parentGroup=g;mobMeshes.push(c);}));
+            zombieGroupArray.forEach(z=>z.children.forEach(c=>{c.userData.parentGroup=z;mobMeshes.push(c);}));
+            const mobHits=raycaster.intersectObjects(mobMeshes,false);
+            if(mobHits.length>0&&mobHits[0].distance<=MAX_REACH){
+                const root=mobHits[0].object.userData.parentGroup;
+                if(root){
+                    root.userData.health--;
+                    const pp=controls.getObject().position;
+                    const dir=new THREE.Vector3().subVectors(root.position,pp).setY(0).normalize();
+                    root.userData.velocity.x=dir.x*20; root.userData.velocity.z=dir.z*20; root.userData.velocity.y=6.5; root.userData.onGround=false;
+                    if(root.userData.health<=0){if(root.userData.isZombie){scene.remove(root);zombieGroupArray.splice(zombieGroupArray.indexOf(root),1);}else{spawnDroppedItem('raw_mutton',root.position.x,root.position.y,root.position.z);spawnDroppedItem('wool',root.position.x+0.3,root.position.y,root.position.z+0.3);scene.remove(root);sheepGroupArray.splice(sheepGroupArray.indexOf(root),1);setTimeout(()=>{spawnRandomWorldSheep();},60000);}}
+                    return;
+                }
+            }
+            const hits=raycaster.intersectObjects(objects,true);
+            if(hits.length>0&&hits[0].distance<=MAX_REACH){let t=hits[0].object;while(t.parent&&t.parent!==scene)t=t.parent;isMiningRequested=true;}
+        }
+        else if (event.button === 2) {
+            if(activeSlot&&activeSlot.count>0){
+                if(activeSlot.type==='raw_mutton'){if(playerHunger>=MAX_HUNGER)return;playerHunger=Math.min(MAX_HUNGER,playerHunger+1.5);consumeItems('raw_mutton',1);updateHUDVisuals();return;}
+                if(activeSlot.type==='cooked_mutton'){if(playerHunger>=MAX_HUNGER)return;playerHunger=Math.min(MAX_HUNGER,playerHunger+3.0);consumeItems('cooked_mutton',1);updateHUDVisuals();return;}
+            }
+            raycaster.setFromCamera(center,camera);
+            const intersects=raycaster.intersectObjects(objects,true);
+            if(intersects.length===0||intersects[0].distance>MAX_REACH)return;
+            let tObj=intersects[0].object; while(tObj.parent&&tObj.parent!==scene)tObj=tObj.parent;
+            const tType=tObj.userData.type;
+
+            // ── Interactable blocks: blocked while sneaking ──────────────
+            if(tType==='bed'){
+                if(!isCrouching){if(checkIsNighttimeCurrently())triggerBedSleepTransition();else alert("You can only sleep at night!");}
+                return;
+            }
+            if(tType==='crafting_table'){ if(!isCrouching){resetMiningState();openWorkbenchMenu();} return; }
+            if(tType==='furnace'){         if(!isCrouching){resetMiningState();openFurnaceMenu();}   return; }
+            if(tType==='chest'){           if(!isCrouching){resetMiningState();openChestMenu();}     return; }
+            // ─────────────────────────────────────────────────────────────
+
+            if(!activeSlot||!activeSlot.type||activeSlot.count<=0||activeSlot.type.endsWith('pickaxe')||activeSlot.type.endsWith('axe')||activeSlot.type==='sticks'||activeSlot.type==='iron_ingot'||activeSlot.type==='diamond'||activeSlot.type==='cooked_mutton')return;
+            const curType=activeSlot.type, intx=intersects[0];
+            const targetPos=new THREE.Vector3().copy(intx.point).add(intx.face.normal.clone().multiplyScalar(0.1));
+            const bc=new THREE.Vector3(Math.floor(targetPos.x+.5),Math.floor(targetPos.y+.5),Math.floor(targetPos.z+.5));
+            const pp=controls.getObject().position;
+
+            if(curType==='bed'){
+                const ld=new THREE.Vector3(); camera.getWorldDirection(ld);
+                let dx2=0,dz2=0;
+                if(Math.abs(ld.x)>Math.abs(ld.z))dx2=ld.x>0?1:-1; else dz2=ld.z>0?1:-1;
+                const fx=bc.x,fy=bc.y,fz=bc.z,hx=fx+dx2,hz=fz+dz2;
+                if(isSpaceOccupied(fx,fy,fz)||isSpaceOccupied(hx,fy,hz))return;
+                const pr=playerRadius, ph=playerHeightOffset;
+                if((pp.x+pr>fx-.5&&pp.x-pr<fx+.5&&pp.z+pr>fz-.5&&pp.z-pr<fz+.5&&pp.y+.2>fy-.5&&pp.y-ph<fy+.5)||(pp.x+pr>hx-.5&&pp.x-pr<hx+.5&&pp.z+pr>hz-.5&&pp.z-pr<hz+.5&&pp.y+.2>fy-.5&&pp.y-ph<fy+.5))return;
+                consumeItems('bed',1);
+                spawnTwoBlockBed(fx,fy,fz,dx2,dz2);
+                playerPlacedBeds.push({footX:fx,footY:fy,footZ:fz,dirX:dx2,dirZ:dz2});
+                return;
+            }
+            if(curType==='torch'){
+                            if(isSpaceOccupied(bc.x,bc.y,bc.z))return;
+                            consumeItems('torch',1);
+                            spawnTorchLightMeshNode(bc.x,bc.y,bc.z);
+                            playerPlacedTorches.push({x:bc.x,y:bc.y,z:bc.z});
+                            if(isMultiplayer&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'place',x:bc.x,y:bc.y,z:bc.z,blockType:'torch'}));}
+                            return;
+                        }
+            if(pp.x+playerRadius>bc.x-.5&&pp.x-playerRadius<bc.x+.5&&pp.z+playerRadius>bc.z-.5&&pp.z-playerRadius<bc.z+.5&&pp.y+.2>bc.y-.5&&pp.y-playerHeightOffset<bc.y+.5)return;
+            const mat=getMaterialForType(curType);
+            if(!mat)return;
+            consumeItems(curType,1);
+                        createBlock(bc.x,bc.y,bc.z,mat,curType);
+                        playerPlacedBlocks.set(gridKey(bc.x,bc.y,bc.z),{type:curType,x:bc.x,y:bc.y,z:bc.z});
+                        if(isMultiplayer&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'place',x:bc.x,y:bc.y,z:bc.z,blockType:curType}));}
+        }
+    });
+
+    document.addEventListener('mouseup', (e) => { if(e.button===0)resetMiningState(); });
+
+    // =====================================================================
+    //  KEYBOARD INPUT  (uses gameSettings.keybinds, handles keybind capture)
+    // =====================================================================
+    document.addEventListener('keydown', (event) => {
+        // ── Keybind capture mode ──
+        if (listeningForKeybind !== null) {
+            event.preventDefault();
+            event.stopPropagation();
+            if (event.code === 'Escape') {
+                listeningForKeybind = null;
+                renderSettingsPanel();
+                return;
+            }
+            // Prevent binding to reserved game-system keys
+            const reserved = ['F5'];
+            if (!reserved.includes(event.code)) {
+                gameSettings.keybinds[listeningForKeybind] = event.code;
+                persistSettings();
+            }
+            listeningForKeybind = null;
+            renderSettingsPanel();
+            return;
+        }
+
+        // ── Quick save ──
+        if (event.code === 'F5' || (event.code === 'KeyS' && event.ctrlKey)) {
+            event.preventDefault();
+            saveGame();
+            return;
+        }
+
+        // ── Inventory toggle (only when playing, not paused) ──
+        if (event.code === gameSettings.keybinds.inventory && !isGamePaused && gameStarted) {
+            toggleInventoryMenu();
+            return;
+        }
+
+        // Everything below only fires when controls are locked and no UI is open
+        if (!controls.isLocked || isUIOpen || isSleeping || !gameStarted) return;
+
+        if      (event.code === gameSettings.keybinds.forward)   { moveForward   = true; }
+        else if (event.code === gameSettings.keybinds.backward)  { moveBackward  = true; }
+        else if (event.code === gameSettings.keybinds.left)      { moveLeft      = true; }
+        else if (event.code === gameSettings.keybinds.right)     { moveRight     = true; }
+        else if (event.code === gameSettings.keybinds.jump)      { if(canJump){velocity.y+=8.5;canJump=false;} }
+        else if (event.code === 'KeyZ')                          { isCrouching   = true; }
+        else if (event.code === 'KeyQ') {
+            const slot = hotbarSlots[activeSlotIndex];
+            if (slot && slot.type && slot.count > 0) {
+                const pp = controls.getObject().position;
+                const dir = new THREE.Vector3();
+                camera.getWorldDirection(dir);
+                spawnDroppedItem(slot.type, pp.x + dir.x * 1.2, pp.y - 0.8, pp.z + dir.z * 1.2);
+                slot.count--;
+                if (slot.count <= 0) slot.type = null;
+                updateInventoryUI();
+            }
+        }
+        else if (event.code.startsWith('Digit')) {
+            const idx = parseInt(event.code.replace('Digit','')) - 1;
+            if (idx >= 0 && idx < 7) { activeSlotIndex = idx; updateInventoryUI(); }
+        }
+    });
+
+    document.addEventListener('keyup', (e) => {
+        if (e.code === gameSettings.keybinds.forward)  moveForward  = false;
+        if (e.code === gameSettings.keybinds.backward) moveBackward = false;
+        if (e.code === gameSettings.keybinds.left)     moveLeft     = false;
+        if (e.code === gameSettings.keybinds.right)    moveRight    = false;
+        if (e.code === 'KeyZ')                         isCrouching  = false;
+    });
+
+    function setupVisualMiningMesh(targetBlock){
+        if(visualCrackOverlayMesh)scene.remove(visualCrackOverlayMesh);
+        const sz=targetBlock.userData.type==='torch'?0.6:1.02;
+        visualCrackOverlayMesh=new THREE.Mesh(new THREE.BoxGeometry(sz,sz,sz),new THREE.MeshBasicMaterial({color:0x000000,wireframe:true,transparent:true,opacity:0.4}));
+        visualCrackOverlayMesh.position.copy(targetBlock.position);scene.add(visualCrackOverlayMesh);
+    }
+
+    // Crafting functions
+    function craftTorch(){if(getTotalItemCount('coal_ore')>=1&&getTotalItemCount('sticks')>=1){consumeItems('coal_ore',1);consumeItems('sticks',1);addItemToInventory('torch',4);}}
+    function craftPlanks(){if(getTotalItemCount('wood')>=1){consumeItems('wood',1);addItemToInventory('planks',4);}}
+    function craftSticks(){if(getTotalItemCount('planks')>=1){consumeItems('planks',1);addItemToInventory('sticks',4);}}
+    function craftTable(){if(getTotalItemCount('planks')>=4){consumeItems('planks',4);addItemToInventory('crafting_table',1);}}
+    function craftChest(){if(getTotalItemCount('planks')>=8){consumeItems('planks',8);addItemToInventory('chest',1);}}
+    function craftBed(){if(getTotalItemCount('wool')>=3&&getTotalItemCount('planks')>=3){consumeItems('wool',3);consumeItems('planks',3);addItemToInventory('bed',1);}}
+    function craftPickaxe(){if(getTotalItemCount('planks')>=3&&getTotalItemCount('sticks')>=2){consumeItems('planks',3);consumeItems('sticks',2);addItemToInventory('wooden_pickaxe',1);}}
+    function craftStonePickaxe(){if(getTotalItemCount('stone')>=3&&getTotalItemCount('sticks')>=2){consumeItems('stone',3);consumeItems('sticks',2);addItemToInventory('stone_pickaxe',1);}}
+    function craftIronPickaxe(){if(getTotalItemCount('iron_ingot')>=3&&getTotalItemCount('sticks')>=2){consumeItems('iron_ingot',3);consumeItems('sticks',2);addItemToInventory('iron_pickaxe',1);}}
+    function craftDiamondPickaxe(){if(getTotalItemCount('diamond')>=3&&getTotalItemCount('sticks')>=2){consumeItems('diamond',3);consumeItems('sticks',2);addItemToInventory('diamond_pickaxe',1);}}
+    function craftWoodenAxe(){if(getTotalItemCount('planks')>=3&&getTotalItemCount('sticks')>=2){consumeItems('planks',3);consumeItems('sticks',2);addItemToInventory('wooden_axe',1);}}
+    function craftStoneAxe(){if(getTotalItemCount('stone')>=3&&getTotalItemCount('sticks')>=2){consumeItems('stone',3);consumeItems('sticks',2);addItemToInventory('stone_axe',1);}}
+    function craftIronAxe(){if(getTotalItemCount('iron_ingot')>=3&&getTotalItemCount('sticks')>=2){consumeItems('iron_ingot',3);consumeItems('sticks',2);addItemToInventory('iron_axe',1);}}
+    function craftDiamondAxe(){if(getTotalItemCount('diamond')>=3&&getTotalItemCount('sticks')>=2){consumeItems('diamond',3);consumeItems('sticks',2);addItemToInventory('diamond_axe',1);}}
+    function craftFurnace(){if(getTotalItemCount('stone')>=8){consumeItems('stone',8);addItemToInventory('furnace',1);}}
+    function executeSmeltAction(){
+        if(furnaceSourceSlot.count>=1&&furnaceFuelSlot.count>=1){
+            let out=null;
+            if(furnaceSourceSlot.type==='iron_ore')out='iron_ingot';
+            else if(furnaceSourceSlot.type==='sand')out='glass';
+            else if(furnaceSourceSlot.type==='raw_mutton')out='cooked_mutton';
+            if(out){furnaceSourceSlot.count--;if(furnaceSourceSlot.count===0)furnaceSourceSlot.type=null;furnaceFuelSlot.count--;if(furnaceFuelSlot.count===0)furnaceFuelSlot.type=null;addItemToInventory(out,1);}
+        }
+        updateInventoryUI();
+    }
+
+    document.getElementById('p-btn-craft-torch').addEventListener('click',craftTorch);
+    document.getElementById('p-btn-craft-planks').addEventListener('click',craftPlanks);
+    document.getElementById('p-btn-craft-sticks').addEventListener('click',craftSticks);
+    document.getElementById('p-btn-craft-table').addEventListener('click',craftTable);
+    document.getElementById('btn-craft-torch').addEventListener('click',craftTorch);
+    document.getElementById('btn-craft-planks').addEventListener('click',craftPlanks);
+    document.getElementById('btn-craft-sticks').addEventListener('click',craftSticks);
+    document.getElementById('btn-craft-table').addEventListener('click',craftTable);
+    document.getElementById('btn-craft-chest').addEventListener('click',craftChest);
+    document.getElementById('btn-craft-bed').addEventListener('click',craftBed);
+    document.getElementById('btn-craft-pickaxe').addEventListener('click',craftPickaxe);
+    document.getElementById('btn-craft-stone-pickaxe').addEventListener('click',craftStonePickaxe);
+    document.getElementById('btn-craft-iron-pickaxe').addEventListener('click',craftIronPickaxe);
+    document.getElementById('btn-craft-diamond-pickaxe').addEventListener('click',craftDiamondPickaxe);
+    document.getElementById('btn-craft-wooden-axe').addEventListener('click',craftWoodenAxe);
+    document.getElementById('btn-craft-stone-axe').addEventListener('click',craftStoneAxe);
+    document.getElementById('btn-craft-iron-axe').addEventListener('click',craftIronAxe);
+    document.getElementById('btn-craft-diamond-axe').addEventListener('click',craftDiamondAxe);
+    document.getElementById('btn-craft-furnace').addEventListener('click',craftFurnace);
+    document.getElementById('btn-smelt-execute').addEventListener('click',executeSmeltAction);
+    document.getElementById('close-storage').addEventListener('click',()=>controls.lock());
+    document.getElementById('close-crafting').addEventListener('click',()=>controls.lock());
+    document.getElementById('close-furnace').addEventListener('click',()=>controls.lock());
+    document.getElementById('close-chest').addEventListener('click',()=>controls.lock());
+
+    // Player movement state
+    let prevTime=performance.now();
+    let moveForward=false,moveBackward=false,moveLeft=false,moveRight=false,canJump=false;
+    let isCrouching=false;
+    let velocity=new THREE.Vector3(), direction=new THREE.Vector3();
+
+    // HUD caching
+    let _lastHP=-1,_lastHG=-1,_lastInv=false;
+    const _origHUD=updateHUDVisuals;
+    updateHUDVisuals=function(){
+        const inv=performance.now()<invincibilityEndTime;
+        if(playerHealth===_lastHP&&Math.floor(playerHunger)===_lastHG&&inv===_lastInv)return;
+        _lastHP=playerHealth;_lastHG=Math.floor(playerHunger);_lastInv=inv;_origHUD();
+    };
+
+    const _animPos2D=new THREE.Vector2(),_animOldPos=new THREE.Vector3(),_animPostPos=new THREE.Vector3(),_tmpSky=new THREE.Color();
+
+    // =====================================================================
+    //  MAIN ANIMATE LOOP
+    // =====================================================================
+    function animate() {
+        requestAnimationFrame(animate);
+        const time=performance.now();
+        const delta=Math.min((time-prevTime)/1000, 0.1);
+
+        if (!gameStarted) {
+            titleCameraAngle += delta * 0.25;
+            controls.getObject().position.set(Math.sin(titleCameraAngle)*6, 9, Math.cos(titleCameraAngle)*6);
+            camera.lookAt(0, 6, 0);
+            prevTime=time;
+            renderer.render(scene,camera);
+            return;
+        }
+
+        updateHUDVisuals(); handleHealthRegeneration(time); handleGlobalDayNightCycle(delta);
+        updateMusicSystem(delta);
+
+        if (controls.isLocked) {
+            autoSaveAccum += delta;
+            if (autoSaveAccum >= AUTO_SAVE_INTERVAL) { autoSaveAccum=0; if(!isMultiplayer) saveGame(); }
+            if (isMultiplayer && ws && ws.readyState === 1) {
+                positionSendAccum += delta;
+                if (positionSendAccum >= POSITION_SEND_RATE) {
+                    positionSendAccum = 0;
+                    const _mp = controls.getObject().position;
+                    const _md = new THREE.Vector3(); camera.getWorldDirection(_md);
+                    ws.send(JSON.stringify({ type:'move', x:_mp.x, y:_mp.y, z:_mp.z, yaw:Math.atan2(_md.x,_md.z), pitch:camera.rotation.x }));
+                }
+                stateSendAccum += delta;
+                if (stateSendAccum >= 5) {
+                    stateSendAccum = 0;
+                    ws.send(JSON.stringify({ type:'state', health:playerHealth, hunger:playerHunger, hotbar:hotbarSlots.map(s=>({type:s.type,count:s.count})), storage:storageSlots.map(s=>({type:s.type,count:s.count})) }));
+                }
+            }
+        }
+
+        if (controls.isLocked && !isSleeping) {
+            processSheepAI(time,delta); processZombieAI(time,delta);
+            updateDroppedItems(delta, time);
+            if(isMultiplayer) interpolateRemotePlayers(delta);
+            const playerObj=controls.getObject();
+
+            // ── Update player height and crouch indicator ─────────────────
+            const crouchIndicatorEl = document.getElementById('crouch-indicator');
+            crouchIndicatorEl.style.display = (isCrouching && controls.isLocked) ? 'block' : 'none';
+
+            // ── Smoothly lower/raise camera when crouching ────────────────
+            
+
+            _animPos2D.set(playerObj.position.x, playerObj.position.z);
+            if(lastPosition2D.lengthSq()===0){lastPosition2D.copy(_animPos2D);}
+            else{const step=_animPos2D.distanceTo(lastPosition2D);if(step>0&&step<5.0){blocksWalkedCounter+=step;if(blocksWalkedCounter>=40.0){playerHunger=Math.max(0,playerHunger-1.0);blocksWalkedCounter-=40.0;updateHUDVisuals();}}lastPosition2D.copy(_animPos2D);}
+
+            if(isMiningRequested){
+                raycaster.setFromCamera(center,camera);const hits=raycaster.intersectObjects(objects,true);
+                if(hits.length>0&&hits[0].distance<=MAX_REACH){
+                    let ct=hits[0].object; while(ct.parent&&ct.parent!==scene)ct=ct.parent;
+                    const bt=ct.userData.type;
+                    if(bt==='water'){if(visualCrackOverlayMesh){scene.remove(visualCrackOverlayMesh);visualCrackOverlayMesh=null;}miningTargetBlock=null;}
+                    else{
+                        const as=hotbarSlots[activeSlotIndex],hasPick=as&&as.type?.endsWith('pickaxe');
+                        const isOre=(bt==='stone'||bt==='coal_ore'||bt==='iron_ore'||bt==='diamond_ore'||bt==='furnace');
+                        if(bt==='diamond_ore'&&as?.type!=='iron_pickaxe'&&as?.type!=='diamond_pickaxe'){resetMiningState();isMiningRequested=true;uiMiningWarning.innerText="Need Iron or Diamond Pickaxe!";uiMiningWarning.style.display='block';}
+                        else if(isOre&&!hasPick){resetMiningState();isMiningRequested=true;uiMiningWarning.innerText="You need a pickaxe!";uiMiningWarning.style.display='block';}
+                        else{
+                            uiMiningWarning.style.display='none';
+                            if(miningTargetBlock!==ct){miningTargetBlock=ct;miningStartTime=time;setupVisualMiningMesh(ct);}
+                            let req=600;
+                            if(bt==='leaves'||bt==='glass'||bt==='wool'||bt==='torch')req=200;
+                            else if(bt==='sand')req=400;
+                            else if(bt==='wood'||bt==='planks'||bt==='crafting_table'||bt==='chest'||bt==='bed'){req=900;if(as?.type==='diamond_axe')req=80;else if(as?.type==='iron_axe')req=150;else if(as?.type==='stone_axe')req=350;else if(as?.type==='wooden_axe')req=550;}
+                            else if(isOre){if(as?.type==='diamond_pickaxe')req=120;else if(as?.type==='iron_pickaxe')req=250;else req=as?.type==='stone_pickaxe'?550:1150;}
+                            const prog=Math.min((time-miningStartTime)/req,1.0);
+                            if(visualCrackOverlayMesh){const s=(bt==='torch'?.6:1.02)-(prog*.05);visualCrackOverlayMesh.scale.set(s,s,s);visualCrackOverlayMesh.material.opacity=0.2+prog*.6;}
+                            if(time-miningStartTime>=req){
+                                spawnDroppedItem(bt, ct.position.x, ct.position.y, ct.position.z);
+                                const bk=gridKey(ct.position.x,ct.position.y,ct.position.z);
+                                if(playerPlacedBlocks.has(bk)){playerPlacedBlocks.delete(bk);}
+                                else if(bt!=='torch'){playerRemovedKeys.add(bk);}
+                                gridRemove(ct);
+                                if(bt==='torch'){
+                                    const ti=torchObjects.indexOf(ct);if(ti!==-1)torchObjects.splice(ti,1);
+                                    const ti2=playerPlacedTorches.findIndex(t=>Math.abs(t.x-ct.position.x)<0.5&&Math.abs(t.y-ct.position.y)<0.5&&Math.abs(t.z-ct.position.z)<0.5);
+                                    if(ti2!==-1)playerPlacedTorches.splice(ti2,1);
+                                }
+                                scene.remove(ct);objects.splice(objects.indexOf(ct),1);
+                                if(isMultiplayer&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'break',x:Math.round(ct.position.x),y:Math.round(ct.position.y),z:Math.round(ct.position.z)}));}
+                                resetMiningState();
+                            }
+                        }
+                    }
+                }else{resetMiningState();}
+            }
+
+            // ── Movement speed: 30% slower when crouching ─────────────────
+            const moveSpeed = isCrouching ? 14.0 : 40.0;
+            velocity.x-=velocity.x*10.0*delta; velocity.z-=velocity.z*10.0*delta; velocity.y-=9.8*2.5*delta;
+            direction.z=Number(moveForward)-Number(moveBackward); direction.x=Number(moveRight)-Number(moveLeft); direction.normalize();
+            if(moveForward||moveBackward)velocity.z-=direction.z*moveSpeed*delta;
+            if(moveLeft||moveRight)velocity.x-=direction.x*moveSpeed*delta;
+
+            _animOldPos.copy(playerObj.position);
+            if(velocity.y<0){if(!isPlayerAirborne){isPlayerAirborne=true;peakAirborneY=playerObj.position.y;}else if(playerObj.position.y>peakAirborneY){peakAirborneY=playerObj.position.y;}}
+
+            controls.moveRight(-velocity.x*delta);
+            if(checkCollision(playerObj.position)){playerObj.position.x=_animOldPos.x;playerObj.position.z=_animOldPos.z;}
+            _animPostPos.copy(playerObj.position);
+            controls.moveForward(-velocity.z*delta);
+            if(checkCollision(playerObj.position)){playerObj.position.x=_animPostPos.x;playerObj.position.z=_animPostPos.z;}
+
+            // ── Sneak edge detection: prevent walking off ledges ──────────
+            // Only applies when on the ground (canJump) and currently crouching
+            if(isCrouching && canJump && !hasBlockBelow(playerObj.position)){
+                playerObj.position.x = _animOldPos.x;
+                playerObj.position.z = _animOldPos.z;
+            }
+
+            playerObj.position.y+=velocity.y*delta;
+            if(checkCollision(playerObj.position)){
+                playerObj.position.y=_animOldPos.y;
+                if(velocity.y<0){canJump=true;if(isPlayerAirborne){const drop=peakAirborneY-playerObj.position.y;if(drop>=4.0)damagePlayer(1+Math.floor(drop-4.0));isPlayerAirborne=false;}}
+                velocity.y=0;
+            }
+            if(playerObj.position.y<-35){alert("You fell into the void!");clearAllInventoriesOnDeath();respawnPlayer();}
+        }
+
+        if(controls.isLocked){const cp=controls.getObject().position;updateChunkLoading(cp.x,cp.z);}
+        processChunkBuildQueue();
+
+        // Distance culling using current render-distance setting
+        if(controls.isLocked){
+            const cx=controls.getObject().position.x,cz=controls.getObject().position.z;
+            const cfg=RENDER_DISTANCE_CONFIGS[gameSettings.renderDistance-1];
+            const CULL=cfg.cullDist*cfg.cullDist;
+            for(let i=0;i<objects.length;i++){const o=objects[i];const dx=o.position.x-cx,dz=o.position.z-cz;o.visible=(dx*dx+dz*dz)<=CULL;}
+        }
+
+        prevTime=time;
+        renderer.render(scene,camera);
+    }
+
+    // ── Init ──────────────────────────────────────────────────────────────
+    loadSettings();
+    applySettings();
+    updateTitleSaveInfo();
+    updateInventoryUI();
+    updateHUDVisuals();
+    animate();
+
+    window.addEventListener('contextmenu', e=>e.preventDefault());
+    window.addEventListener('resize', ()=>{camera.aspect=window.innerWidth/window.innerHeight;camera.updateProjectionMatrix();renderer.setSize(window.innerWidth,window.innerHeight);});
+    </script>
+</body>
+</html>
