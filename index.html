@@ -848,6 +848,7 @@
     let playerName       = 'Player';
     let isMultiplayer    = false;
     let serverInitData   = null;
+    let _mpPlayerSave    = null;
     let positionSendAccum = 0;
     let stateSendAccum   = 0;
     const POSITION_SEND_RATE = 0.05; // 20 Hz
@@ -1829,21 +1830,8 @@
                     }
                 }
             }
-            // Apply saved player state if server has one for this player name
-            if (serverInitData.playerSave) {
-                const ps = serverInitData.playerSave;
-                if (ps.x !== undefined) {
-                    controls.getObject().position.set(ps.x, ps.y, ps.z);
-                    lastPosition2D.set(ps.x, ps.z);
-                }
-                if (ps.health  !== undefined) playerHealth = Math.max(1, ps.health);
-                if (ps.hunger  !== undefined) playerHunger = Math.max(0, ps.hunger);
-                if (Array.isArray(ps.hotbar))  ps.hotbar.forEach((s, i)  => { if(hotbarSlots[i])  { hotbarSlots[i].type  = s.type;  hotbarSlots[i].count  = s.count; } });
-                if (Array.isArray(ps.storage)) ps.storage.forEach((s, i) => { if(storageSlots[i]) { storageSlots[i].type = s.type;  storageSlots[i].count = s.count; } });
-                invincibilityEndTime = performance.now() + 3000;
-                updateInventoryUI();
-                updateHUDVisuals();
-            }
+            // Save it to apply AFTER the inventory reset below, not here
+            if (serverInitData.playerSave) _mpPlayerSave = serverInitData.playerSave;
             serverInitData = null;
         }
 
@@ -1863,6 +1851,23 @@
             chestSlots.forEach(s=>{s.type=null;s.count=0;});
             invincibilityEndTime = performance.now() + 2000;
             updateInventoryUI(); updateHUDVisuals();
+        }
+
+        // Apply multiplayer player save AFTER the else-reset above so it is never overwritten
+        if (isMultiplayer && _mpPlayerSave) {
+            const ps = _mpPlayerSave;
+            if (ps.x !== undefined) {
+                controls.getObject().position.set(ps.x, ps.y, ps.z);
+                lastPosition2D.set(ps.x, ps.z);
+            }
+            if (ps.health  !== undefined) playerHealth = Math.max(1, ps.health);
+            if (ps.hunger  !== undefined) playerHunger = Math.max(0, ps.hunger);
+            if (Array.isArray(ps.hotbar))  ps.hotbar.forEach((s, i)  => { if(hotbarSlots[i])  { hotbarSlots[i].type  = s.type;  hotbarSlots[i].count  = s.count; } });
+            if (Array.isArray(ps.storage)) ps.storage.forEach((s, i) => { if(storageSlots[i]) { storageSlots[i].type = s.type;  storageSlots[i].count = s.count; } });
+            invincibilityEndTime = performance.now() + 3000;
+            updateInventoryUI();
+            updateHUDVisuals();
+            _mpPlayerSave = null;
         }
 
         gameStarted = true;
