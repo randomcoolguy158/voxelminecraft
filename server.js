@@ -10,7 +10,7 @@ const SAVE_INTERVAL = 30000;
 const DATA_FILE     = path.join(__dirname, 'world_data.json');
 
 // ── World state ───────────────────────────────────────────────────────────────
-let worldData = { seeds: null, placedBlocks: {}, removedKeys: [] };
+let worldData = { seeds: null, placedBlocks: {}, removedKeys: [], playerSaves: {} };
 
 function loadWorld() {
     try {
@@ -109,7 +109,8 @@ wss.on('connection', (ws) => {
                     seeds:        worldData.seeds,
                     placedBlocks: worldData.placedBlocks,
                     removedKeys:  worldData.removedKeys,
-                    players: others
+                    players:      others,
+                    playerSave:   worldData.playerSaves[name] || null
                 });
 
                 broadcast({ type: 'player_join', id, name, x: player.x, y: player.y, z: player.z, yaw: 0 }, id);
@@ -124,6 +125,11 @@ wss.on('connection', (ws) => {
                 player.x = Number(msg.x); player.y = Number(msg.y); player.z = Number(msg.z);
                 player.yaw = Number(msg.yaw); player.pitch = Number(msg.pitch);
                 player.lastSeen = Date.now();
+                // Persist position into player save
+                if (!worldData.playerSaves[player.name]) worldData.playerSaves[player.name] = {};
+                worldData.playerSaves[player.name].x = player.x;
+                worldData.playerSaves[player.name].y = player.y;
+                worldData.playerSaves[player.name].z = player.z;
                 broadcast({ type: 'player_move', id, x: player.x, y: player.y, z: player.z, yaw: player.yaw }, id);
                 break;
             }
@@ -164,6 +170,15 @@ wss.on('connection', (ws) => {
                 player.hotbar  = Array.isArray(msg.hotbar)  ? msg.hotbar  : player.hotbar;
                 player.storage = Array.isArray(msg.storage) ? msg.storage : player.storage;
                 player.lastSeen = Date.now();
+                // Persist full player state into server save
+                if (!worldData.playerSaves[player.name]) worldData.playerSaves[player.name] = {};
+                worldData.playerSaves[player.name].health  = player.health;
+                worldData.playerSaves[player.name].hunger  = player.hunger;
+                worldData.playerSaves[player.name].hotbar  = player.hotbar;
+                worldData.playerSaves[player.name].storage = player.storage;
+                worldData.playerSaves[player.name].x = player.x;
+                worldData.playerSaves[player.name].y = player.y;
+                worldData.playerSaves[player.name].z = player.z;
                 break;
             }
         }
@@ -171,6 +186,16 @@ wss.on('connection', (ws) => {
 
     ws.on('close', () => {
         if (!player) return;
+        // Final save on disconnect
+        if (!worldData.playerSaves[player.name]) worldData.playerSaves[player.name] = {};
+        worldData.playerSaves[player.name].x       = player.x;
+        worldData.playerSaves[player.name].y       = player.y;
+        worldData.playerSaves[player.name].z       = player.z;
+        worldData.playerSaves[player.name].health  = player.health;
+        worldData.playerSaves[player.name].hunger  = player.hunger;
+        worldData.playerSaves[player.name].hotbar  = player.hotbar;
+        worldData.playerSaves[player.name].storage = player.storage;
+        saveWorld();
         players.delete(id);
         broadcast({ type: 'player_leave', id }, id);
         console.log(`[-] ${player.name} left. Online: ${players.size}`);

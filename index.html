@@ -722,6 +722,7 @@
 
     function saveGame() {
         if (!gameStarted) return;
+        if (isMultiplayer) return;
         const pos = controls.getObject().position;
         const data = {
             version: 2,
@@ -958,8 +959,8 @@
     }
 
     function quitToTitle() {
-        // Save first
-        saveGame();
+        // Save first (singleplayer only — server handles its own saving in multiplayer)
+        if(!isMultiplayer) saveGame();
 
         // Hide all game overlays
         hidePauseMenu();
@@ -982,7 +983,16 @@
         playerPlacedTorches.length = 0; playerPlacedBeds.length = 0;
 
         // Reset game flags
-        if (ws) { ws.close(); ws = null; }
+        if (ws) {
+            // Flush final position + state to server before disconnecting
+            if (ws.readyState === 1) {
+                const _fp = controls.getObject().position;
+                const _fd = new THREE.Vector3(); camera.getWorldDirection(_fd);
+                ws.send(JSON.stringify({ type:'move', x:_fp.x, y:_fp.y, z:_fp.z, yaw:Math.atan2(_fd.x,_fd.z), pitch:camera.rotation.x }));
+                ws.send(JSON.stringify({ type:'state', health:playerHealth, hunger:playerHunger, hotbar:hotbarSlots.map(s=>({type:s.type,count:s.count})), storage:storageSlots.map(s=>({type:s.type,count:s.count})) }));
+            }
+            ws.close(); ws = null;
+        }
         for (const [rid] of remotePlayers) removeRemotePlayer(rid);
         remotePlayers.clear();
         isMultiplayer = false; myPlayerId = null; serverInitData = null;
@@ -1819,6 +1829,21 @@
                     }
                 }
             }
+            // Apply saved player state if server has one for this player name
+            if (serverInitData.playerSave) {
+                const ps = serverInitData.playerSave;
+                if (ps.x !== undefined) {
+                    controls.getObject().position.set(ps.x, ps.y, ps.z);
+                    lastPosition2D.set(ps.x, ps.z);
+                }
+                if (ps.health  !== undefined) playerHealth = Math.max(1, ps.health);
+                if (ps.hunger  !== undefined) playerHunger = Math.max(0, ps.hunger);
+                if (Array.isArray(ps.hotbar))  ps.hotbar.forEach((s, i)  => { if(hotbarSlots[i])  { hotbarSlots[i].type  = s.type;  hotbarSlots[i].count  = s.count; } });
+                if (Array.isArray(ps.storage)) ps.storage.forEach((s, i) => { if(storageSlots[i]) { storageSlots[i].type = s.type;  storageSlots[i].count = s.count; } });
+                invincibilityEndTime = performance.now() + 3000;
+                updateInventoryUI();
+                updateHUDVisuals();
+            }
             serverInitData = null;
         }
 
@@ -1995,22 +2020,22 @@
     function handleServerMessage(msg, resolveInit) {
         switch (msg.type) {
             case 'init': {
-                myPlayerId = msg.playerId;
-                if (msg.seeds) {
-                    terrainSeedX      = msg.seeds.x;
-                    terrainSeedY      = msg.seeds.y;
-                    terrainSeedZ      = msg.seeds.z;
-                    totalLakesToBuild = msg.seeds.totalLakes;
-                    lakeCenter1       = new THREE.Vector2(msg.seeds.lake1x, msg.seeds.lake1z);
-                    lakeCenter2       = new THREE.Vector2(msg.seeds.lake2x, msg.seeds.lake2z);
-                }
-                serverInitData = msg;
-                for (const p of (msg.players || [])) {
-                    createRemotePlayerModel(p.id, p.name, p.x, p.y, p.z, p.yaw || 0);
-                }
-                if (resolveInit) resolveInit(msg);
-                break;
+            myPlayerId = msg.playerId;
+            if (msg.seeds) {
+                terrainSeedX      = msg.seeds.x;
+                terrainSeedY      = msg.seeds.y;
+                terrainSeedZ      = msg.seeds.z;
+                totalLakesToBuild = msg.seeds.totalLakes;
+                lakeCenter1       = new THREE.Vector2(msg.seeds.lake1x, msg.seeds.lake1z);
+                lakeCenter2       = new THREE.Vector2(msg.seeds.lake2x, msg.seeds.lake2z);
             }
+            serverInitData = msg;
+            for (const p of (msg.players || [])) {
+                createRemotePlayerModel(p.id, p.name, p.x, p.y, p.z, p.yaw || 0);
+            }
+            if (resolveInit) resolveInit(msg);
+            break;
+        }
             case 'player_join': {
                 if (msg.id !== myPlayerId) createRemotePlayerModel(msg.id, msg.name, msg.x, msg.y, msg.z, msg.yaw || 0);
                 break;
