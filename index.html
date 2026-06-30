@@ -977,7 +977,10 @@
         for(let i = objects.length - 1; i >= 0; i--) scene.remove(objects[i]);
         objects.length = 0; torchObjects.length = 0; bedObjects.length = 0; spatialGrid.clear();
         chunkMap.clear(); buildQueue.length = 0; _lastPCX = 99999; _lastPCZ = 99999;
-        sheepGroupArray.length = 0; zombieGroupArray.length = 0;
+        for(let i=sheepGroupArray.length-1;i>=0;i--) scene.remove(sheepGroupArray[i]);
+        sheepGroupArray.length = 0;
+        for(let i=zombieGroupArray.length-1;i>=0;i--) scene.remove(zombieGroupArray[i]);
+        zombieGroupArray.length = 0;
         for(let i=droppedItems.length-1;i>=0;i--) scene.remove(droppedItems[i]);
         droppedItems.length=0;
         playerPlacedBlocks.clear(); playerRemovedKeys.clear();
@@ -2549,7 +2552,7 @@
                             const prog=Math.min((time-miningStartTime)/req,1.0);
                             if(visualCrackOverlayMesh){const s=(bt==='torch'?.6:1.02)-(prog*.05);visualCrackOverlayMesh.scale.set(s,s,s);visualCrackOverlayMesh.material.opacity=0.2+prog*.6;}
                             if(time-miningStartTime>=req){
-                                spawnDroppedItem(bt, ct.position.x, ct.position.y, ct.position.z);
+                                spawnDroppedItem(bt==='diamond_ore'?'diamond':bt, ct.position.x, ct.position.y, ct.position.z);
                                 const bk=gridKey(ct.position.x,ct.position.y,ct.position.z);
                                 if(playerPlacedBlocks.has(bk)){playerPlacedBlocks.delete(bk);}
                                 else if(bt!=='torch'){playerRemovedKeys.add(bk);}
@@ -2558,6 +2561,12 @@
                                     const ti=torchObjects.indexOf(ct);if(ti!==-1)torchObjects.splice(ti,1);
                                     const ti2=playerPlacedTorches.findIndex(t=>Math.abs(t.x-ct.position.x)<0.5&&Math.abs(t.y-ct.position.y)<0.5&&Math.abs(t.z-ct.position.z)<0.5);
                                     if(ti2!==-1)playerPlacedTorches.splice(ti2,1);
+                                }
+                                if(bt==='bed'){
+                                    const bi=bedObjects.indexOf(ct);if(bi!==-1)bedObjects.splice(bi,1);
+                                    const fc=ct.userData.footCoords, hc=ct.userData.headCoords;
+                                    const bi2=playerPlacedBeds.findIndex(b=>b.footX===fc.x&&b.footY===fc.y&&b.footZ===fc.z);
+                                    if(bi2!==-1)playerPlacedBeds.splice(bi2,1);
                                 }
                                 scene.remove(ct);objects.splice(objects.indexOf(ct),1);
                                 if(isMultiplayer&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'break',x:Math.round(ct.position.x),y:Math.round(ct.position.y),z:Math.round(ct.position.z)}));}
@@ -2622,7 +2631,11 @@
     updateInventoryUI();
     updateHUDVisuals();
     animate();
-
+    renderer.domElement.addEventListener('click', () => {
+        if (gameStarted && !isUIOpen && !isSleeping && !isGamePaused && !controls.isLocked) {
+            controls.lock();
+        }
+    });
     window.addEventListener('contextmenu', e=>e.preventDefault());
     window.addEventListener('resize', ()=>{camera.aspect=window.innerWidth/window.innerHeight;camera.updateProjectionMatrix();renderer.setSize(window.innerWidth,window.innerHeight);});
     </script>
