@@ -1863,6 +1863,8 @@
         sheepGroupArray.length=0; zombieGroupArray.length=0;
         playerPlacedBlocks.clear(); playerRemovedKeys.clear();
         playerPlacedTorches.length=0; playerPlacedBeds.length=0;
+        columnInfoCache.clear();
+        for (const k in surfaceHeightMap) delete surfaceHeightMap[k];
 
         if (continueFromSave && saveData && saveData.seeds) {
             terrainSeedX = saveData.seeds.x;
