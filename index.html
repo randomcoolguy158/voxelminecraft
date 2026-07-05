@@ -777,7 +777,8 @@
     }
 
     function applyWorldChanges(saveData) {
-        for (const key of (saveData.removedKeys || [])) {
+    const removedList = saveData.removedKeys || [];
+        for (const key of removedList) {
             const block = spatialGrid.get(key);
             if (block) {
                 scene.remove(block);
@@ -786,6 +787,12 @@
                 if (idx !== -1) objects.splice(idx, 1);
             }
             playerRemovedKeys.add(key);
+        }
+        // Now that every removed block is marked, reveal any terrain blocks
+        // that were skipped during generation but are exposed by your tunnels
+        for (const key of removedList) {
+            const parts = key.split(',');
+            revealExposedNeighbors(Number(parts[0]), Number(parts[1]), Number(parts[2]));
         }
         for (const b of (saveData.placedBlocks || [])) {
             const mat = getMaterialForType(b.type);
@@ -826,7 +833,7 @@
     function getMaterialForType(type) {
         const map = {
             grass: matGrassBlockArray, dirt: matDirt, wood: matWood,
-            leaves: matLeaves, planks: matPlanks, stone: matStone,
+            leaves: matLeaves, planks: matPlanks, stone: matStone, bedrock: matBedrock,
             coal_ore: matCoalOre, iron_ore: matIronOre, diamond_ore: matDiamondOre,
             sand: matSand, water: matWater, glass: matGlass, wool: matWool,
             crafting_table: matTableBlockArray, furnace: matFurnaceBlockArray, chest: matChestBlockArray
@@ -1545,6 +1552,7 @@
             else if(type==='table_top'){const ig=(x===0||x===15||y===0||y===15||x===8||y===8);r=ig?80+noise:150+noise;g=ig?50+noise:100+noise;b=ig?30+noise:60+noise;}
             else if(type==='table_side'){const it=(x>3&&x<7&&y>4&&y<12)||(x>9&&x<13&&y>6&&y<10);r=it?90+noise:130+noise;g=it?60+noise:85+noise;b=it?40+noise:55+noise;}
             else if(type==='stone'){r=120+noise;g=120+noise;b=120+noise;}
+            else if(type==='bedrock'){const sp=Math.random()<0.5?-25:15;r=90+noise+sp;g=90+noise+sp;b=95+noise+sp;}
             else if(type==='sand'){r=225+noise;g=205+noise;b=170+noise;}
             else if(type==='water'){r=60+noise;g=130+noise;b=230+noise;}
             else if(type==='glass'){const isF=(x===0||x===15||y===0||y===15||(x===y&&x>3&&x<12));r=isF?240:210;g=isF?248:235;b=255;}
@@ -1564,6 +1572,7 @@
     const texDirt=createPixelTexture('dirt'),texGrassTop=createPixelTexture('grass_top'),texGrassSide=createPixelTexture('grass_side');
     const texWood=createPixelTexture('wood'),texLeaves=createPixelTexture('leaves'),texPlanks=createPixelTexture('planks');
     const texTableTop=createPixelTexture('table_top'),texTableSide=createPixelTexture('table_side'),texStone=createPixelTexture('stone');
+    const texBedrock=createPixelTexture('bedrock');
     const texCoalOre=createPixelTexture('coal_ore'),texIronOre=createPixelTexture('iron_ore'),texDiamondOre=createPixelTexture('diamond_ore');
     const texFurnaceFront=createPixelTexture('furnace_front'),texFurnaceSide=createPixelTexture('furnace_side');
     const texChestFront=createPixelTexture('chest_front'),texChestSide=createPixelTexture('chest_side');
@@ -1572,6 +1581,7 @@
     const matDirt=new THREE.MeshLambertMaterial({map:texDirt}),matWood=new THREE.MeshLambertMaterial({map:texWood});
     const matLeaves=new THREE.MeshLambertMaterial({map:texLeaves}),matPlanks=new THREE.MeshLambertMaterial({map:texPlanks});
     const matStone=new THREE.MeshLambertMaterial({map:texStone}),matCoalOre=new THREE.MeshLambertMaterial({map:texCoalOre});
+    const matBedrock=new THREE.MeshLambertMaterial({map:texBedrock});
     const matIronOre=new THREE.MeshLambertMaterial({map:texIronOre}),matDiamondOre=new THREE.MeshLambertMaterial({map:texDiamondOre});
     const matSand=new THREE.MeshLambertMaterial({map:texSand});
     const matWater=new THREE.MeshLambertMaterial({map:texWater,transparent:true,opacity:0.6});
@@ -1690,16 +1700,24 @@
         return (Math.sin(ex*.055)*Math.cos(ez*.055)+Math.sin(ex*.022+5.3)*Math.cos(ez*.019+2.1)*0.5)<-0.55;
     }
 
-    // Chunk system
-    const CHUNK_SIZE=16;
-    let LOAD_RADIUS_CHUNKS=2, UNLOAD_RADIUS_CHUNKS=3;
-    const BUILD_MS_PER_FRAME=4;
-    const chunkMap=new Map(), buildQueue=[];
-    function chunkKey(cx,cz){return cx+','+cz;}
-    function worldToChunk(wx,wz){return{cx:Math.floor(wx/CHUNK_SIZE),cz:Math.floor(wz/CHUNK_SIZE)};}
-    function chunkRng(cx,cz){let s=((cx*374761393)^(cz*1376312589)^((terrainSeedX*1000)|0))|0;return function(){s^=s<<13;s^=s>>17;s^=s<<5;return(s>>>0)/0x100000000;};}
+    // ── Deterministic per-coordinate pseudo-random. Replaces the old
+    //    sequential per-chunk RNG stream so that "what block is at (x,y,z)"
+    //    can be recomputed on demand from the coordinates alone, in any
+    //    order. This is what makes lazy block reveal (below) possible. ────
+    function hash01(a,b,c){
+        let h=(Math.imul(a,0x2545F491)^Math.imul(b,0x27D4EB2F)^Math.imul(c,0x165667B1)^((terrainSeedX*1000)|0))|0;
+        h=Math.imul(h^(h>>>15),0x85EBCA6B);
+        h=Math.imul(h^(h>>>13),0xC2B2AE35);
+        h^=h>>>16;
+        return (h>>>0)/4294967296;
+    }
 
-    function buildColumn(x,z,meshArr,rng){
+    // ── Cached column info (surface height / lake / sand) ─────────────────
+    const columnInfoCache=new Map();
+    function getColumnInfo(x,z){
+        const key=x+','+z;
+        let info=columnInfoCache.get(key);
+        if(info) return info;
         let surfY=calculateProceduralHeight(x,z);
         const d1x=x-lakeCenter1.x,d1z=z-lakeCenter1.y,distL1=Math.sqrt(d1x*d1x+d1z*d1z);
         const d2x=x-lakeCenter2.x,d2z=z-lakeCenter2.y,distL2=totalLakesToBuild>1?Math.sqrt(d2x*d2x+d2z*d2z):999;
@@ -1707,30 +1725,90 @@
         if(distL1<lakeRadiusMax){surfY=0;isSand=true;if(distL1<lakeRadiusMax-1.0)isLake=true;}
         else if(distL2<lakeRadiusMax){surfY=0;isSand=true;if(distL2<lakeRadiusMax-1.0)isLake=true;}
         else if(isBeachColumn(x,z)){surfY=Math.min(surfY,globalWaterLevel-1);isSand=true;if(surfY<globalWaterLevel-1)isLake=true;}
-        surfaceHeightMap[x+','+z]=surfY;
-        const topY=Math.max(surfY,globalWaterLevel);
+        info={surfY,isLake,isSand};
+        columnInfoCache.set(key,info);
+        surfaceHeightMap[key]=surfY;
+        return info;
+    }
+
+    // Pure function: is there logically solid ground at x,y,z? Used both to
+    // decide what to build AND (later) whether a dug-out neighbor should
+    // reveal this block.
+    function isSolidAt(x,y,z){
+        if(y<-14) return false;
+        const info=getColumnInfo(x,z);
+        if(y>info.surfY) return false;
+        if(checkShouldCarveCaveBlock(x,y,z)) return false;
+        return true;
+    }
+
+    function getBlockTypeAt(x,y,z,info){
+        if(y===info.surfY) return (info.isLake||info.isSand||info.surfY<=globalWaterLevel)?'sand':'grass';
+        if(y>=info.surfY-2) return (info.isSand||info.surfY<=globalWaterLevel)?'sand':'dirt';
+        const r=hash01(x,y,z);
+        if(y<=-14) return 'bedrock';
+        if(y>=-14&&y<=-9&&r<0.015) return 'diamond_ore';
+        if(y<=-2&&r<0.07) return 'coal_ore';
+        if(y<=-3&&r>=0.07&&r<0.11) return 'iron_ore';
+        return 'stone';
+    }
+
+    // Chunk system
+    const CHUNK_SIZE=16;
+    let LOAD_RADIUS_CHUNKS=2, UNLOAD_RADIUS_CHUNKS=3;
+    const BUILD_MS_PER_FRAME=4;
+    const chunkMap=new Map(), buildQueue=[];
+    function chunkKey(cx,cz){return cx+','+cz;}
+    function worldToChunk(wx,wz){return{cx:Math.floor(wx/CHUNK_SIZE),cz:Math.floor(wz/CHUNK_SIZE)};}
+
+    function buildColumn(x,z,meshArr){
+        const info=getColumnInfo(x,z);
+        const topY=Math.max(info.surfY,globalWaterLevel);
         for(let y=-14;y<=topY;y++){
-            if(y>surfY){if(y<=globalWaterLevel)meshArr.push(createBlock(x,y,z,matWater,'water'));continue;}
+            if(y>info.surfY){if(y<=globalWaterLevel)meshArr.push(createBlock(x,y,z,matWater,'water'));continue;}
             if(checkShouldCarveCaveBlock(x,y,z))continue;
-            let mat=matDirt,type='dirt';
-            if(y===surfY){if(isLake||isSand||surfY<=globalWaterLevel){mat=matSand;type='sand';}else{mat=matGrassBlockArray;type='grass';}}
-            else if(y>=surfY-2){if(isSand||surfY<=globalWaterLevel){mat=matSand;type='sand';}else{mat=matDirt;type='dirt';}}
-            else{const r=rng();if(y>=-14&&y<=-9&&r<0.015){mat=matDiamondOre;type='diamond_ore';}else if(y<=-2&&r<0.07){mat=matCoalOre;type='coal_ore';}else if(y<=-3&&r>=0.07&&r<0.11){mat=matIronOre;type='iron_ore';}else{mat=matStone;type='stone';}}
-            meshArr.push(createBlock(x,y,z,mat,type));
+            // Skip blocks completely enclosed by other solid blocks - they
+            // can never be seen so building them is wasted work. This is
+            // what fixes the freeze: it cuts the number of objects created
+            // per chunk by ~80-90%. If a neighbor gets dug out later,
+            // revealExposedNeighbors() creates this block on the spot.
+            if(isSolidAt(x+1,y,z)&&isSolidAt(x-1,y,z)&&isSolidAt(x,y+1,z)&&isSolidAt(x,y-1,z)&&isSolidAt(x,y,z+1)&&isSolidAt(x,y,z-1))continue;
+            const type=getBlockTypeAt(x,y,z,info);
+            meshArr.push(createBlock(x,y,z,getMaterialForType(type)||matStone,type));
         }
-        if(surfY>globalWaterLevel+1&&!isSand&&rng()<0.04&&(Math.abs(x)>3||Math.abs(z)>3)){
-            const ts=surfY+1,th=3;
+        if(info.surfY>globalWaterLevel+1&&!info.isSand&&hash01(x,9999,z)<0.04&&(Math.abs(x)>3||Math.abs(z)>3)){
+            const ts=info.surfY+1,th=3;
             for(let y=ts;y<ts+th;y++)meshArr.push(createBlock(x,y,z,matWood,'wood'));
             for(let lx=-1;lx<=1;lx++)for(let lz2=-1;lz2<=1;lz2++)for(let ly=ts+th-1;ly<=ts+th;ly++){if(lx===0&&lz2===0&&ly===ts+th-1)continue;meshArr.push(createBlock(x+lx,ly,z+lz2,matLeaves,'leaves'));}
             meshArr.push(createBlock(x,ts+th+1,z,matLeaves,'leaves'));
         }
     }
 
+    // ── Lazily create a block that was skipped during generation, once
+    //    digging exposes one of its faces. Call after any block is removed. ─
+    function revealBlockIfNeeded(x,y,z){
+        const key=gridKey(x,y,z);
+        if(spatialGrid.has(key))return;               // already exists
+        if(playerRemovedKeys.has(key))return;          // player already dug this exact spot
+        const placed=playerPlacedBlocks.get(key);
+        if(placed){const mat=getMaterialForType(placed.type);if(mat)createBlock(x,y,z,mat,placed.type);return;}
+        if(!isSolidAt(x,y,z))return;                   // nothing should be here
+        const info=getColumnInfo(x,z);
+        const type=getBlockTypeAt(x,y,z,info);
+        const mat=getMaterialForType(type);
+        if(mat)createBlock(x,y,z,mat,type);
+    }
+    function revealExposedNeighbors(x,y,z){
+        revealBlockIfNeeded(x+1,y,z); revealBlockIfNeeded(x-1,y,z);
+        revealBlockIfNeeded(x,y+1,z); revealBlockIfNeeded(x,y-1,z);
+        revealBlockIfNeeded(x,y,z+1); revealBlockIfNeeded(x,y,z-1);
+    }
+
     function queueChunk(cx,cz){
         const key=chunkKey(cx,cz); if(chunkMap.has(key))return;
         chunkMap.set(key,{meshes:[],state:'queued'});
-        const rng=chunkRng(cx,cz),cols=[];
-        for(let lx=0;lx<CHUNK_SIZE;lx++) for(let lz=0;lz<CHUNK_SIZE;lz++) cols.push({x:cx*CHUNK_SIZE+lx,z:cz*CHUNK_SIZE+lz,rng});
+        const cols=[];
+        for(let lx=0;lx<CHUNK_SIZE;lx++) for(let lz=0;lz<CHUNK_SIZE;lz++) cols.push({x:cx*CHUNK_SIZE+lx,z:cz*CHUNK_SIZE+lz});
         buildQueue.push({key,cx,cz,cols,meshes:[],colIdx:0});
     }
 
@@ -1745,7 +1823,14 @@
         toRemove.forEach(mesh=>{scene.remove(mesh);gridRemove(mesh);});
         let wi=0; for(let ri=0;ri<objects.length;ri++){if(!toRemove.has(objects[ri]))objects[wi++]=objects[ri];}
         objects.length=wi;
-        keysToDelete.forEach(k=>chunkMap.delete(k));
+        keysToDelete.forEach(k=>{
+            chunkMap.delete(k);
+            const comma=k.indexOf(','),ucx=parseInt(k.slice(0,comma)),ucz=parseInt(k.slice(comma+1));
+            for(let lx=0;lx<CHUNK_SIZE;lx++) for(let lz=0;lz<CHUNK_SIZE;lz++){
+                const ck=(ucx*CHUNK_SIZE+lx)+','+(ucz*CHUNK_SIZE+lz);
+                columnInfoCache.delete(ck); delete surfaceHeightMap[ck];
+            }
+        });
     }
 
     function processChunkBuildQueue(){
@@ -1753,7 +1838,7 @@
         const deadline=performance.now()+BUILD_MS_PER_FRAME;
         while(buildQueue.length>0&&performance.now()<deadline){
             const job=buildQueue[0],chunk=chunkMap.get(job.key);
-            while(job.colIdx<job.cols.length&&performance.now()<deadline){const col=job.cols[job.colIdx++];buildColumn(col.x,col.z,job.meshes,col.rng);}
+            while(job.colIdx<job.cols.length&&performance.now()<deadline){const col=job.cols[job.colIdx++];buildColumn(col.x,col.z,job.meshes);}
             if(job.colIdx>=job.cols.length){chunk.meshes=job.meshes;chunk.state='done';buildQueue.shift();
                 if(Math.random()<0.25){const rx=job.cx*CHUNK_SIZE+Math.floor(Math.random()*CHUNK_SIZE),rz=job.cz*CHUNK_SIZE+Math.floor(Math.random()*CHUNK_SIZE);const sy=surfaceHeightMap[rx+','+rz];if(sy!==undefined&&sy>globalWaterLevel+1)spawnSheepEntity(rx,sy,rz);}
             }
@@ -1799,13 +1884,14 @@
             }
         }
 
-        // Sync build initial chunks (cap at radius 2 for performance)
-        const initRadius = Math.min(LOAD_RADIUS_CHUNKS, 2);
-        for(let dx=-initRadius;dx<=initRadius;dx++)
-            for(let dz=-initRadius;dz<=initRadius;dz++) queueChunk(dx,dz);
+        // Sync build initial chunks around the actual player start position only
+        const initCX = (continueFromSave && saveData && saveData.player) ? Math.floor(saveData.player.px / CHUNK_SIZE) : 0;
+        const initCZ = (continueFromSave && saveData && saveData.player) ? Math.floor(saveData.player.pz / CHUNK_SIZE) : 0;
+        for(let dx=-2;dx<=2;dx++)
+            for(let dz=-2;dz<=2;dz++) queueChunk(initCX+dx, initCZ+dz);
         while(buildQueue.length>0){
             const job=buildQueue[0],chunk=chunkMap.get(job.key);
-            while(job.colIdx<job.cols.length){const col=job.cols[job.colIdx++];buildColumn(col.x,col.z,job.meshes,col.rng);}
+            while(job.colIdx<job.cols.length){const col=job.cols[job.colIdx++];buildColumn(col.x,col.z,job.meshes);}
             chunk.meshes=job.meshes;chunk.state='done';buildQueue.shift();
         }
         // Apply server world state in multiplayer (placed/removed blocks from other sessions)
@@ -1837,7 +1923,7 @@
             if (serverInitData.playerSave) _mpPlayerSave = serverInitData.playerSave;
             serverInitData = null;
         }
-
+        
         for(let i=0;i<8;i++) spawnRandomWorldSheep();
 
         let spawnY = Math.max(globalWaterLevel, calculateProceduralHeight(0,0)) + 3;
@@ -1903,7 +1989,8 @@
             // If resting on ground, check every frame if that ground still exists
             if (d.groundY !== undefined) {
                 const support = gridQuery(ix-0.15, ix+0.15, d.groundY-0.7, d.groundY+0.05, iz-0.15, iz+0.15)
-                    .filter(b => b.userData.type !== 'water' && b.userData.type !== 'torch')
+                    .filter(b => b.userData.type !== 'water' && b.userData.type !== 'torch'
+                        && Math.round(b.position.x) === Math.round(ix) && Math.round(b.position.z) === Math.round(iz))
                     .some(b => b.position.y + 0.5 >= d.groundY - 0.05);
                 if (!support) {
                     // Block beneath was mined, start falling again
@@ -1934,6 +2021,7 @@
             let bestTop = -Infinity;
             for (let b of nearBlocks) {
                 if (b.userData.type === 'water' || b.userData.type === 'torch') continue;
+                if (Math.round(b.position.x) !== Math.round(ix) || Math.round(b.position.z) !== Math.round(iz)) continue;
                 const bTop = b.position.y + 0.5;
                 if (bTop <= item.position.y + 0.15 && newY <= bTop + 0.1 && bTop > bestTop) {
                     bestTop = bTop;
@@ -2092,6 +2180,7 @@
                     if (idx !== -1) objects.splice(idx, 1);
                     playerPlacedBlocks.delete(key);
                     playerRemovedKeys.add(key);
+                    revealExposedNeighbors(msg.x, msg.y, msg.z);
                 }
                 break;
             }
@@ -2535,7 +2624,7 @@
                 if(hits.length>0&&hits[0].distance<=MAX_REACH){
                     let ct=hits[0].object; while(ct.parent&&ct.parent!==scene)ct=ct.parent;
                     const bt=ct.userData.type;
-                    if(bt==='water'){if(visualCrackOverlayMesh){scene.remove(visualCrackOverlayMesh);visualCrackOverlayMesh=null;}miningTargetBlock=null;}
+                    if(bt==='water'||bt==='bedrock'){if(visualCrackOverlayMesh){scene.remove(visualCrackOverlayMesh);visualCrackOverlayMesh=null;}miningTargetBlock=null;}
                     else{
                         const as=hotbarSlots[activeSlotIndex],hasPick=as&&as.type?.endsWith('pickaxe');
                         const isOre=(bt==='stone'||bt==='coal_ore'||bt==='iron_ore'||bt==='diamond_ore'||bt==='furnace');
@@ -2569,6 +2658,7 @@
                                     if(bi2!==-1)playerPlacedBeds.splice(bi2,1);
                                 }
                                 scene.remove(ct);objects.splice(objects.indexOf(ct),1);
+                                revealExposedNeighbors(Math.round(ct.position.x),Math.round(ct.position.y),Math.round(ct.position.z));
                                 if(isMultiplayer&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'break',x:Math.round(ct.position.x),y:Math.round(ct.position.y),z:Math.round(ct.position.z)}));}
                                 resetMiningState();
                             }
