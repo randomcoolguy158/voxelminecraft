@@ -740,7 +740,7 @@
             },
             hotbar:  hotbarSlots.map(s => ({ type: s.type, count: s.count })),
             storage: storageSlots.map(s => ({ type: s.type, count: s.count })),
-            chest:   chestSlots.map(s => ({ type: s.type, count: s.count })),
+            chestStorages: Array.from(chestStorages.entries()).map(([key, slots]) => ({ key, slots: slots.map(s => ({ type: s.type, count: s.count })) })),
             furnaceSource: { type: furnaceSourceSlot.type, count: furnaceSourceSlot.count },
             furnaceFuel:   { type: furnaceFuelSlot.type,   count: furnaceFuelSlot.count   },
             furnaceResult: { type: furnaceResultSlot.type,  count: furnaceResultSlot.count },
@@ -805,6 +805,9 @@
             spawnTorchLightMeshNode(t.x, t.y, t.z);
             playerPlacedTorches.push({ x: t.x, y: t.y, z: t.z });
         }
+        for (const c of (saveData.chestStorages || [])) {
+            chestStorages.set(c.key, c.slots.map(s => ({ type: s.type, count: s.count })));
+        }
         for (const bed of (saveData.beds || [])) {
             spawnTwoBlockBed(bed.footX, bed.footY, bed.footZ, bed.dirX, bed.dirZ);
             playerPlacedBeds.push(bed);
@@ -822,7 +825,6 @@
 
         saveData.hotbar.forEach((s, i)  => { hotbarSlots[i].type  = s.type;  hotbarSlots[i].count  = s.count; });
         saveData.storage.forEach((s, i) => { storageSlots[i].type = s.type;  storageSlots[i].count = s.count; });
-        saveData.chest.forEach((s, i)   => { chestSlots[i].type   = s.type;  chestSlots[i].count   = s.count; });
         furnaceSourceSlot.type = saveData.furnaceSource.type; furnaceSourceSlot.count = saveData.furnaceSource.count;
         furnaceFuelSlot.type   = saveData.furnaceFuel.type;   furnaceFuelSlot.count   = saveData.furnaceFuel.count;
         furnaceResultSlot.type = saveData.furnaceResult.type;  furnaceResultSlot.count  = saveData.furnaceResult.count;
@@ -1237,7 +1239,13 @@
     // Inventory state
     const hotbarSlots  = Array(7).fill(null).map(() => ({ type:null, count:0 }));
     const storageSlots = Array(10).fill(null).map(() => ({ type:null, count:0 }));
-    const chestSlots   = Array(15).fill(null).map(() => ({ type:null, count:0 }));
+    let chestSlots = [];                 // points at whichever chest is currently open (empty when none is)
+    const chestStorages = new Map();     // "x,y,z" -> Array(15) of {type,count}, one per chest in the world
+    let openChestKey = null;
+    function getChestSlotsFor(key){
+        if(!chestStorages.has(key)) chestStorages.set(key, Array(15).fill(null).map(()=>({type:null,count:0})));
+        return chestStorages.get(key);
+    }
     const furnaceSourceSlot = { type:null, count:0 };
     const furnaceFuelSlot   = { type:null, count:0 };
     const furnaceResultSlot = { type:null, count:0 };
@@ -1898,7 +1906,8 @@
         }
         // Apply server world state in multiplayer (placed/removed blocks from other sessions)
         if (isMultiplayer && serverInitData) {
-            for (const key of (serverInitData.removedKeys || [])) {
+            const mpRemovedList = serverInitData.removedKeys || [];
+            for (const key of mpRemovedList) {
                 const block = spatialGrid.get(key);
                 if (block) {
                     scene.remove(block); gridRemove(block);
@@ -1906,6 +1915,10 @@
                     if (idx !== -1) objects.splice(idx, 1);
                 }
                 playerRemovedKeys.add(key);
+            }
+            for (const key of mpRemovedList) {
+                const parts = key.split(',');
+                revealExposedNeighbors(Number(parts[0]), Number(parts[1]), Number(parts[2]));
             }
             for (const [key, b] of Object.entries(serverInitData.placedBlocks || {})) {
                 if (b.type === 'torch') {
@@ -1970,12 +1983,12 @@
         return new THREE.MeshLambertMaterial({ color: data ? data.color : '#ffffff' });
     }
 
-    function spawnDroppedItem(type, x, y, z) {
+    function spawnDroppedItem(type, x, y, z, count=1) {
         const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.3, 0.3), getDropMaterial(type));
         const group = new THREE.Group();
         group.add(mesh);
         group.position.set(x, y + 0.7, z);
-        group.userData = { isDroppedItem:true, type:type, spawnTime:performance.now(), velocityY:1.5, groundY:undefined, bobOffset:Math.random()*Math.PI*2 };
+        group.userData = { isDroppedItem:true, type:type, count:count, spawnTime:performance.now(), velocityY:1.5, groundY:undefined, bobOffset:Math.random()*Math.PI*2 };
         scene.add(group);
         droppedItems.push(group);
     }
@@ -2004,7 +2017,7 @@
                     if (currentTime - d.spawnTime > 500) {
                         const dx=pp.x-ix, dz=pp.z-iz, dy=(pp.y-0.8)-item.position.y;
                         if (Math.sqrt(dx*dx+dy*dy+dz*dz) < 1.5) {
-                            addItemToInventory(d.type, 1);
+                            addItemToInventory(d.type, d.count||1);
                             scene.remove(item);
                             droppedItems.splice(i, 1);
                         }
@@ -2127,6 +2140,11 @@
                 lakeCenter1       = new THREE.Vector2(msg.seeds.lake1x, msg.seeds.lake1z);
                 lakeCenter2       = new THREE.Vector2(msg.seeds.lake2x, msg.seeds.lake2z);
             }
+            if (msg.chestStorages) {
+                for (const [k, slots] of Object.entries(msg.chestStorages)) {
+                    chestStorages.set(k, slots.map(s => ({ type: s.type, count: s.count })));
+                }
+            }
             serverInitData = msg;
             for (const p of (msg.players || [])) {
                 createRemotePlayerModel(p.id, p.name, p.x, p.y, p.z, p.yaw || 0);
@@ -2163,6 +2181,11 @@
                 }
                 break;
             }
+            case 'chest_update': {
+                chestStorages.set(msg.key, msg.slots.map(s => ({ type: s.type, count: s.count })));
+                if (openChestKey === msg.key) { chestSlots = chestStorages.get(msg.key); updateInventoryUI(); }
+                break;
+            }
             case 'block_broken': {
                 if (msg.playerId === myPlayerId) return;
                 const key = gridKey(msg.x, msg.y, msg.z);
@@ -2182,6 +2205,7 @@
                     if (idx !== -1) objects.splice(idx, 1);
                     playerPlacedBlocks.delete(key);
                     playerRemovedKeys.add(key);
+                    chestStorages.delete(key);
                     revealExposedNeighbors(msg.x, msg.y, msg.z);
                 }
                 break;
@@ -2247,6 +2271,13 @@
         hidePauseMenu();
         storageScreenEl.style.display='none'; craftingScreenEl.style.display='none';
         furnaceScreenEl.style.display='none'; chestScreenEl.style.display='none';
+        if (openChestKey) {
+            if (isMultiplayer && ws && ws.readyState===1) {
+                ws.send(JSON.stringify({ type:'chest_update', key: openChestKey, slots: chestSlots.map(s=>({type:s.type,count:s.count})) }));
+            }
+            openChestKey = null;
+            chestSlots = [];
+        }
         isUIOpen = false;
     });
 
@@ -2268,7 +2299,7 @@
     }
     function openWorkbenchMenu(){isUIOpen=true;controls.unlock();instructions.style.display='none';craftingScreenEl.style.display='block';updateInventoryUI();}
     function openFurnaceMenu(){isUIOpen=true;controls.unlock();instructions.style.display='none';furnaceScreenEl.style.display='block';updateInventoryUI();}
-    function openChestMenu(){isUIOpen=true;controls.unlock();instructions.style.display='none';chestScreenEl.style.display='block';updateInventoryUI();}
+    function openChestMenu(key){openChestKey=key;chestSlots=getChestSlotsFor(key);isUIOpen=true;controls.unlock();instructions.style.display='none';chestScreenEl.style.display='block';updateInventoryUI();}
 
     function triggerBedSleepTransition(){
         isSleeping=true;resetMiningState();controls.unlock();instructions.style.display='none';
@@ -2375,7 +2406,7 @@
             }
             if(tType==='crafting_table'){ if(!isCrouching){resetMiningState();openWorkbenchMenu();} return; }
             if(tType==='furnace'){         if(!isCrouching){resetMiningState();openFurnaceMenu();}   return; }
-            if(tType==='chest'){           if(!isCrouching){resetMiningState();openChestMenu();}     return; }
+            if(tType==='chest'){           if(!isCrouching){resetMiningState();openChestMenu(gridKey(tObj.position.x,tObj.position.y,tObj.position.z));}     return; }
             // ─────────────────────────────────────────────────────────────
 
             if(!activeSlot||!activeSlot.type||activeSlot.count<=0||activeSlot.type.endsWith('pickaxe')||activeSlot.type.endsWith('axe')||activeSlot.type==='sticks'||activeSlot.type==='iron_ingot'||activeSlot.type==='diamond'||activeSlot.type==='cooked_mutton')return;
@@ -2643,6 +2674,13 @@
                             const prog=Math.min((time-miningStartTime)/req,1.0);
                             if(visualCrackOverlayMesh){const s=(bt==='torch'?.6:1.02)-(prog*.05);visualCrackOverlayMesh.scale.set(s,s,s);visualCrackOverlayMesh.material.opacity=0.2+prog*.6;}
                             if(time-miningStartTime>=req){
+                                if(bt==='chest'){
+                                    const chestKey=gridKey(ct.position.x,ct.position.y,ct.position.z);
+                                    const slots=chestStorages.get(chestKey);
+                                    if(slots){ for(const s of slots){ if(s.type&&s.count>0) spawnDroppedItem(s.type, ct.position.x, ct.position.y, ct.position.z, s.count); } }
+                                    chestStorages.delete(chestKey);
+                                    if(openChestKey===chestKey){ openChestKey=null; chestSlots=[]; }
+                                }
                                 spawnDroppedItem(bt==='diamond_ore'?'diamond':bt, ct.position.x, ct.position.y, ct.position.z);
                                 const bk=gridKey(ct.position.x,ct.position.y,ct.position.z);
                                 if(playerPlacedBlocks.has(bk)){playerPlacedBlocks.delete(bk);}

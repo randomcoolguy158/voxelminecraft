@@ -10,7 +10,7 @@ const SAVE_INTERVAL = 30000;
 const DATA_FILE     = path.join(__dirname, 'world_data.json');
 
 // ── World state ───────────────────────────────────────────────────────────────
-let worldData = { seeds: null, placedBlocks: {}, removedKeys: [], playerSaves: {} };
+let worldData = { seeds: null, placedBlocks: {}, removedKeys: [], playerSaves: {}, chestStorages: {} };
 
 function loadWorld() {
     try {
@@ -106,11 +106,12 @@ wss.on('connection', (ws) => {
 
                 send(ws, {
                     type: 'init', playerId: id,
-                    seeds:        worldData.seeds,
-                    placedBlocks: worldData.placedBlocks,
-                    removedKeys:  worldData.removedKeys,
-                    players:      others,
-                    playerSave:   worldData.playerSaves[name] || null
+                    seeds:         worldData.seeds,
+                    placedBlocks:  worldData.placedBlocks,
+                    removedKeys:   worldData.removedKeys,
+                    chestStorages: worldData.chestStorages,
+                    players:       others,
+                    playerSave:    worldData.playerSaves[name] || null
                 });
 
                 broadcast({ type: 'player_join', id, name, x: player.x, y: player.y, z: player.z, yaw: 0 }, id);
@@ -150,6 +151,13 @@ wss.on('connection', (ws) => {
                 broadcast({ type: 'block_placed', x: msg.x, y: msg.y, z: msg.z, blockType: btype, playerId: id }, null);
                 break;
             }
+            case 'chest_update': {
+                if (!player) return;
+                if (typeof msg.key !== 'string' || !Array.isArray(msg.slots)) return;
+                worldData.chestStorages[msg.key] = msg.slots.map(s => ({ type: s.type || null, count: Number(s.count) || 0 }));
+                broadcast({ type: 'chest_update', key: msg.key, slots: worldData.chestStorages[msg.key] }, id);
+                break;
+            }
 
             case 'break': {
                 if (!player) return;
@@ -159,6 +167,7 @@ wss.on('connection', (ws) => {
                 } else {
                     if (!worldData.removedKeys.includes(key)) worldData.removedKeys.push(key);
                 }
+                delete worldData.chestStorages[key];
                 broadcast({ type: 'block_broken', x: msg.x, y: msg.y, z: msg.z, playerId: id }, null);
                 break;
             }
