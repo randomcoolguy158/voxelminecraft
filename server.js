@@ -10,7 +10,7 @@ const SAVE_INTERVAL = 30000;
 const DATA_FILE     = path.join(__dirname, 'world_data.json');
 
 // ── World state ───────────────────────────────────────────────────────────────
-let worldData = { seeds: null, placedBlocks: {}, removedKeys: [], playerSaves: {}, chestStorages: {} };
+let worldData = { seeds: null, placedBlocks: {}, removedKeys: [], playerSaves: {}, chestStorages: {}, worldTime: 0 };
 
 function loadWorld() {
     try {
@@ -26,6 +26,23 @@ function saveWorld() {
 }
 loadWorld();
 setInterval(saveWorld, SAVE_INTERVAL);
+
+// Advance the shared day/night clock once a second, but only while
+// someone is actually connected — this is what makes time pause when
+// the server is empty.
+let _lastTimeTick = Date.now();
+setInterval(() => {
+    const now = Date.now();
+    const dt = (now - _lastTimeTick) / 1000;
+    _lastTimeTick = now;
+    if (players.size > 0) worldData.worldTime += dt;
+}, 1000);
+
+// Periodically push the authoritative time to everyone so clients
+// can't drift apart.
+setInterval(() => {
+    if (players.size > 0) broadcast({ type: 'time_sync', worldTime: worldData.worldTime });
+}, 10000);
 
 // ── Players ───────────────────────────────────────────────────────────────────
 // id -> { id, ws, name, x, y, z, yaw, pitch, health, hunger, hotbar, storage, lastSeen }
@@ -110,6 +127,7 @@ wss.on('connection', (ws) => {
                     placedBlocks:  worldData.placedBlocks,
                     removedKeys:   worldData.removedKeys,
                     chestStorages: worldData.chestStorages,
+                    worldTime:     worldData.worldTime,
                     players:       others,
                     playerSave:    worldData.playerSaves[name] || null
                 });
@@ -169,6 +187,14 @@ wss.on('connection', (ws) => {
                 }
                 delete worldData.chestStorages[key];
                 broadcast({ type: 'block_broken', x: msg.x, y: msg.y, z: msg.z, playerId: id }, null);
+                break;
+            }
+            case 'sleep_skip': {
+                if (!player) return;
+                if (typeof msg.worldTime !== 'number') return;
+                // Never let a stale/late message move time backward
+                worldData.worldTime = Math.max(worldData.worldTime, msg.worldTime);
+                broadcast({ type: 'time_sync', worldTime: worldData.worldTime });
                 break;
             }
 

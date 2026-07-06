@@ -2145,13 +2145,15 @@
                     chestStorages.set(k, slots.map(s => ({ type: s.type, count: s.count })));
                 }
             }
+            if (typeof msg.worldTime === 'number') totalPlaytimeElapsed = msg.worldTime;
+            serverInitData = msg;
             serverInitData = msg;
             for (const p of (msg.players || [])) {
                 createRemotePlayerModel(p.id, p.name, p.x, p.y, p.z, p.yaw || 0);
             }
             if (resolveInit) resolveInit(msg);
             break;
-        }
+            }
             case 'player_join': {
                 if (msg.id !== myPlayerId) createRemotePlayerModel(msg.id, msg.name, msg.x, msg.y, msg.z, msg.yaw || 0);
                 break;
@@ -2208,6 +2210,11 @@
                     chestStorages.delete(key);
                     revealExposedNeighbors(msg.x, msg.y, msg.z);
                 }
+                break;
+            }
+            case 'time_sync': {
+                if (typeof msg.worldTime === 'number') totalPlaytimeElapsed = msg.worldTime;
+                purgeNightZombies();
                 break;
             }
         }
@@ -2304,7 +2311,13 @@
     function triggerBedSleepTransition(){
         isSleeping=true;resetMiningState();controls.unlock();instructions.style.display='none';
         const ov=document.getElementById('sleep-overlay');ov.style.pointerEvents='auto';ov.style.opacity='1';
-        setTimeout(()=>{const ci=Math.floor(totalPlaytimeElapsed/FULL_CYCLE_DURATION);totalPlaytimeElapsed=(ci+1)*FULL_CYCLE_DURATION;handleGlobalDayNightCycle(0);setTimeout(()=>{ov.style.opacity='0';ov.style.pointerEvents='none';isSleeping=false;controls.lock();},1000);},1200);
+        setTimeout(()=>{
+            const ci=Math.floor(totalPlaytimeElapsed/FULL_CYCLE_DURATION);
+            totalPlaytimeElapsed=(ci+1)*FULL_CYCLE_DURATION;
+            handleGlobalDayNightCycle(0);
+            if(isMultiplayer&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'sleep_skip', worldTime:totalPlaytimeElapsed}));}
+            setTimeout(()=>{ov.style.opacity='0';ov.style.pointerEvents='none';isSleeping=false;controls.lock();},1000);
+        },1200);
     }
 
     // =====================================================================
