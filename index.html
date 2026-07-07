@@ -358,6 +358,29 @@
         .furnace-column { display: flex; flex-direction: column; align-items: center; gap: 10px; }
         .furnace-label { font-size: 11px; text-transform: uppercase; color: #aaa; }
         .fire-icon { width: 24px; height: 24px; background: #ff5500; clip-path: polygon(50% 0%, 80% 30%, 100% 70%, 80% 100%, 20% 100%, 0% 70%, 20% 30%); box-shadow: 0 0 10px #ffcc00; margin: 10px 0; }
+
+        /* ==================== CHAT SYSTEM ==================== */
+        #chat-messages {
+            position: absolute; left: 12px; bottom: 92px; width: 480px; max-height: 260px;
+            display: flex; flex-direction: column; justify-content: flex-end; gap: 2px;
+            pointer-events: none; z-index: 8; overflow: hidden;
+        }
+        #chat-messages.chat-log-open { max-height: 320px; background: rgba(0,0,0,0.35); padding: 6px; border-radius: 4px; overflow-y: auto; }
+        .chat-line {
+            color: #fff; font-size: 13px; text-shadow: 1px 1px 2px black; background: rgba(0,0,0,0.45);
+            padding: 3px 6px; border-radius: 3px; width: fit-content; max-width: 100%;
+            word-wrap: break-word; opacity: 1; transition: opacity 0.6s ease;
+        }
+        .chat-line.system { color: #ffd97a; font-style: italic; }
+        .chat-line.fading { opacity: 0; }
+        #chat-input-container {
+            position: absolute; left: 12px; bottom: 92px; width: 480px; display: none;
+            gap: 0; z-index: 20;
+        }
+        #chat-input-field {
+            width: 100%; box-sizing: border-box; background: rgba(0,0,0,0.75); border: 2px solid #666;
+            border-radius: 4px; color: #fff; font-size: 14px; padding: 6px 8px; outline: none;
+        }
     </style>
 </head>
 <body>
@@ -462,6 +485,11 @@
     </div>
 
     <div id="mining-warning">You need a stronger pickaxe to mine this!</div>
+
+    <div id="chat-messages"></div>
+    <div id="chat-input-container">
+        <input type="text" id="chat-input-field" maxlength="256" placeholder="Press Enter to send, Esc to cancel" autocomplete="off">
+    </div>
 
     <div id="hotbar">
         <div class="slot active" id="slot-0"><span class="key-bind">1</span><div class="block-icon"></div><span class="label"></span><span class="count">0</span></div>
@@ -1250,6 +1278,9 @@
     const furnaceFuelSlot   = { type:null, count:0 };
     const furnaceResultSlot = { type:null, count:0 };
     let activeSlotIndex = 0; let isUIOpen = false;
+    let isChatOpen = false;
+    const chatMessages = []; // { text, isSystem, el, fadeTimer }
+    const CHAT_FADE_DELAY = 6000; // ms before a message starts fading (Minecraft-like)
 
     const storageScreenEl  = document.getElementById('storage-screen');
     const craftingScreenEl = document.getElementById('crafting-screen');
@@ -1294,6 +1325,7 @@
         updateInventoryUI();
     }
 
+    // Returns the leftover amount that could NOT be added (0 means everything fit).
     function addItemToInventory(type, amount=1) {
         let remaining=amount;
         for (let arr of [hotbarSlots,storageSlots]) {
@@ -1307,6 +1339,7 @@
             }
         }
         updateInventoryUI();
+        return remaining;
     }
 
     function updateInventoryUI() {
@@ -1385,25 +1418,65 @@
         } else { labelEl.innerText=''; iconEl.style.display='none'; countEl.style.display='none'; }
     }
 
+    function getArrayByType(arrayType) {
+        switch(arrayType) {
+            case 'hotbar': case 'chest-hotbar': case 'furnace-hotbar': return hotbarSlots;
+            case 'storage': case 'chest-storage': case 'furnace-storage': return storageSlots;
+            case 'chest': return chestSlots;
+            default: return null;
+        }
+    }
+
+    let dragSource = null; // { arrayType, index }
+
     function renderGridContainer(containerEl, targetArray, arrayType) {
         if (!containerEl) return; containerEl.innerHTML='';
         targetArray.forEach((slotData, idx) => {
             const slot=document.createElement('div'); slot.className='slot';
             slot.innerHTML=`<div class="block-icon"></div><span class="label"></span><span class="count">0</span>`;
             renderSlotContent(slot, slotData, false);
-            slot.addEventListener('click', () => handleInterSlotTransfer(arrayType, idx));
+            slot.draggable = !!(slotData && slotData.type);
+            slot.addEventListener('dragstart', (e) => {
+                if (!slotData || !slotData.type) { e.preventDefault(); return; }
+                dragSource = { arrayType, index: idx };
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', 'drag');
+                slot.style.opacity = '0.35';
+            });
+            slot.addEventListener('dragend', () => { slot.style.opacity=''; dragSource=null; });
+            slot.addEventListener('dragover', (e) => { e.preventDefault(); e.dataTransfer.dropEffect='move'; });
+            slot.addEventListener('dragenter', (e) => { e.preventDefault(); slot.style.outline='2px solid #fff'; });
+            slot.addEventListener('dragleave', () => { slot.style.outline=''; });
+            slot.addEventListener('drop', (e) => handleSlotDrop(e, slot, arrayType, idx));
             containerEl.appendChild(slot);
         });
     }
 
-    function handleInterSlotTransfer(sourceType, index) {
-        if (sourceType==='hotbar') transferToTargetArrays(hotbarSlots[index],[storageSlots]);
-        else if (sourceType==='storage') transferToTargetArrays(storageSlots[index],[hotbarSlots]);
-        else if (sourceType==='chest') transferToTargetArrays(chestSlots[index],[hotbarSlots,storageSlots]);
-        else if (sourceType==='chest-hotbar') transferToTargetArrays(hotbarSlots[index],[chestSlots]);
-        else if (sourceType==='chest-storage') transferToTargetArrays(storageSlots[index],[chestSlots]);
-        else if (sourceType==='furnace-hotbar') routeItemToFurnacePorts(hotbarSlots[index]);
-        else if (sourceType==='furnace-storage') routeItemToFurnacePorts(storageSlots[index]);
+    function handleSlotDrop(e, slotEl, arrayType, idx) {
+        e.preventDefault();
+        slotEl.style.outline = '';
+        if (!dragSource) return;
+        const srcArr = getArrayByType(dragSource.arrayType), destArr = getArrayByType(arrayType);
+        if (!srcArr || !destArr) { dragSource = null; return; }
+        const srcSlot = srcArr[dragSource.index], destSlot = destArr[idx];
+        if (srcSlot === destSlot) { dragSource = null; return; }
+
+        if (!destSlot.type) {
+            destSlot.type = srcSlot.type; destSlot.count = srcSlot.count;
+            srcSlot.type = null; srcSlot.count = 0;
+        } else if (destSlot.type === srcSlot.type) {
+            const total = destSlot.count + srcSlot.count;
+            destSlot.count = Math.min(64, total);
+            const leftover = total - destSlot.count;
+            srcSlot.count = leftover;
+            if (leftover <= 0) srcSlot.type = null;
+        } else {
+            const tType=destSlot.type, tCount=destSlot.count;
+            destSlot.type=srcSlot.type; destSlot.count=srcSlot.count;
+            srcSlot.type=tType; srcSlot.count=tCount;
+        }
+        dragSource = null;
+        updateInventoryUI();
     }
 
     function routeItemToFurnacePorts(inventorySlot) {
@@ -1419,15 +1492,34 @@
 
     document.getElementById('furnace-source-view').addEventListener('click', () => { if(furnaceSourceSlot.type){addItemToInventory(furnaceSourceSlot.type,furnaceSourceSlot.count);furnaceSourceSlot.type=null;furnaceSourceSlot.count=0;updateInventoryUI();}});
     document.getElementById('furnace-fuel-view').addEventListener('click', () => { if(furnaceFuelSlot.type){addItemToInventory(furnaceFuelSlot.type,furnaceFuelSlot.count);furnaceFuelSlot.type=null;furnaceFuelSlot.count=0;updateInventoryUI();}});
-
-    function transferToTargetArrays(srcSlot, destArrays) {
-        if(!srcSlot||!srcSlot.type) return;
-        for(let destArray of destArrays) {
-            for(let d of destArray) { if(d.type===srcSlot.type&&d.count<64){const tot=d.count+srcSlot.count;if(tot<=64){d.count=tot;srcSlot.type=null;srcSlot.count=0;updateInventoryUI();return;}else{d.count=64;srcSlot.count=tot-64;}} }
-        }
-        for(let destArray of destArrays) { for(let d of destArray){ if(d.type===null){d.type=srcSlot.type;d.count=srcSlot.count;srcSlot.type=null;srcSlot.count=0;updateInventoryUI();return;} } }
-        updateInventoryUI();
+    function setupFurnacePortDrop(elId, getSlot, accepts) {
+        const el = document.getElementById(elId);
+        el.addEventListener('dragover', (e) => { e.preventDefault(); e.dataTransfer.dropEffect='move'; });
+        el.addEventListener('dragenter', (e) => { e.preventDefault(); el.style.outline='2px solid #fff'; });
+        el.addEventListener('dragleave', () => { el.style.outline=''; });
+        el.addEventListener('drop', (e) => {
+            e.preventDefault(); el.style.outline='';
+            if (!dragSource || !dragSource.arrayType) { dragSource=null; return; }
+            const srcArr = getArrayByType(dragSource.arrayType);
+            const srcSlot = srcArr[dragSource.index];
+            if (!srcSlot || !srcSlot.type || !accepts(srcSlot.type)) { dragSource=null; return; }
+            const destSlot = getSlot();
+            if (!destSlot.type) {
+                destSlot.type = srcSlot.type; destSlot.count = srcSlot.count;
+                srcSlot.type = null; srcSlot.count = 0;
+            } else if (destSlot.type === srcSlot.type) {
+                const total = destSlot.count + srcSlot.count;
+                destSlot.count = Math.min(64, total);
+                const leftover = total - destSlot.count;
+                srcSlot.count = leftover; if (leftover<=0) srcSlot.type=null;
+            }
+            dragSource = null;
+            updateInventoryUI();
+        });
     }
+    setupFurnacePortDrop('furnace-source-view', () => furnaceSourceSlot, t => t==='iron_ore'||t==='sand'||t==='raw_mutton');
+    setupFurnacePortDrop('furnace-fuel-view',   () => furnaceFuelSlot,   t => t==='coal_ore'||t==='planks');
+
 
     // =====================================================================
     //  THREE.JS SCENE SETUP
@@ -2017,9 +2109,18 @@
                     if (currentTime - d.spawnTime > 500) {
                         const dx=pp.x-ix, dz=pp.z-iz, dy=(pp.y-0.8)-item.position.y;
                         if (Math.sqrt(dx*dx+dy*dy+dz*dz) < 1.5) {
-                            addItemToInventory(d.type, d.count||1);
-                            scene.remove(item);
-                            droppedItems.splice(i, 1);
+                            const pickupAmount = d.count||1;
+                            const leftover = addItemToInventory(d.type, pickupAmount);
+                            if (leftover < pickupAmount) {
+                                // At least some of the stack fit in the inventory
+                                if (leftover <= 0) {
+                                    scene.remove(item);
+                                    droppedItems.splice(i, 1);
+                                } else {
+                                    d.count = leftover; // keep the remainder on the ground
+                                }
+                            }
+                            // If leftover === pickupAmount, inventory is full: leave item in the world untouched
                         }
                     }
                     continue;
@@ -2063,9 +2164,17 @@
             if (currentTime - d.spawnTime > 500) {
                 const dx=pp.x-ix, dz=pp.z-iz, dy=(pp.y-0.8)-item.position.y;
                 if (Math.sqrt(dx*dx+dy*dy+dz*dz) < 1.5) {
-                    addItemToInventory(d.type, 1);
-                    scene.remove(item);
-                    droppedItems.splice(i, 1);
+                    const pickupAmount = d.count||1;
+                    const leftover = addItemToInventory(d.type, pickupAmount);
+                    if (leftover < pickupAmount) {
+                        if (leftover <= 0) {
+                            scene.remove(item);
+                            droppedItems.splice(i, 1);
+                        } else {
+                            d.count = leftover;
+                        }
+                    }
+                    // If leftover === pickupAmount, inventory is full: leave item in the world untouched
                 }
             }
         }
@@ -2155,11 +2264,20 @@
             break;
             }
             case 'player_join': {
-                if (msg.id !== myPlayerId) createRemotePlayerModel(msg.id, msg.name, msg.x, msg.y, msg.z, msg.yaw || 0);
+                if (msg.id !== myPlayerId) {
+                    createRemotePlayerModel(msg.id, msg.name, msg.x, msg.y, msg.z, msg.yaw || 0);
+                    addChatMessage(`${msg.name} joined the game`, true);
+                }
                 break;
             }
             case 'player_leave': {
+                const leavingName = remotePlayers.get(msg.id)?.name;
                 removeRemotePlayer(msg.id);
+                if (leavingName) addChatMessage(`${leavingName} left the game`, true);
+                break;
+            }
+            case 'chat': {
+                addChatMessage(`<${msg.name}> ${msg.message}`);
                 break;
             }
             case 'player_move': {
@@ -2286,12 +2404,15 @@
             chestSlots = [];
         }
         isUIOpen = false;
+        chatInputContainer.style.display = 'none';
+        chatMessagesEl.classList.remove('chat-log-open');
+        isChatOpen = false;
     });
 
     controls.addEventListener('unlock', () => {
         moveForward=false; moveBackward=false; moveLeft=false; moveRight=false;
         // Show pause menu only when the game is active and no other UI is open
-        if (!isUIOpen && !isSleeping && gameStarted && settingsMenuEl.style.display !== 'flex') {
+        if (!isUIOpen && !isChatOpen && !isSleeping && gameStarted && settingsMenuEl.style.display !== 'flex') {
             showPauseMenu();
         }
         resetMiningState();
@@ -2307,6 +2428,79 @@
     function openWorkbenchMenu(){isUIOpen=true;controls.unlock();instructions.style.display='none';craftingScreenEl.style.display='block';updateInventoryUI();}
     function openFurnaceMenu(){isUIOpen=true;controls.unlock();instructions.style.display='none';furnaceScreenEl.style.display='block';updateInventoryUI();}
     function openChestMenu(key){openChestKey=key;chestSlots=getChestSlotsFor(key);isUIOpen=true;controls.unlock();instructions.style.display='none';chestScreenEl.style.display='block';updateInventoryUI();}
+
+    // ==================== CHAT SYSTEM ====================
+    const chatMessagesEl    = document.getElementById('chat-messages');
+    const chatInputContainer = document.getElementById('chat-input-container');
+    const chatInputField    = document.getElementById('chat-input-field');
+
+    function addChatMessage(text, isSystem = false) {
+        const el = document.createElement('div');
+        el.className = 'chat-line' + (isSystem ? ' system' : '');
+        el.textContent = text;
+        chatMessagesEl.appendChild(el);
+
+        const entry = { text, isSystem, el, fadeTimer: null };
+        chatMessages.push(entry);
+
+        // Cap scrollback so the DOM/array don't grow forever
+        while (chatMessages.length > 100) {
+            const old = chatMessages.shift();
+            if (old.el.parentNode) old.el.parentNode.removeChild(old.el);
+        }
+
+        // Auto-scroll the log to the newest message when it's open
+        if (isChatOpen) chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+
+        // Fade out after a delay, unless the chat log is currently open
+        entry.fadeTimer = setTimeout(() => {
+            if (!isChatOpen) el.classList.add('fading');
+        }, CHAT_FADE_DELAY);
+    }
+
+    function openChatInput() {
+        isChatOpen = true;
+        controls.unlock();
+        instructions.style.display = 'none';
+        chatInputContainer.style.display = 'flex';
+        chatInputField.value = '';
+        chatMessagesEl.classList.add('chat-log-open');
+        // Un-fade everything while the log is open so history is fully readable
+        for (const m of chatMessages) m.el.classList.remove('fading');
+        chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+        setTimeout(() => chatInputField.focus(), 0);
+    }
+
+    function closeChatInput(shouldSend) {
+        const text = chatInputField.value.trim();
+        if (shouldSend && text.length > 0) {
+            sendChatMessage(text);
+        }
+        chatInputField.value = '';
+        chatInputContainer.style.display = 'none';
+        chatMessagesEl.classList.remove('chat-log-open');
+        isChatOpen = false;
+        // Re-arm fade timers now that the log is closing
+        for (const m of chatMessages) {
+            clearTimeout(m.fadeTimer);
+            m.fadeTimer = setTimeout(() => m.el.classList.add('fading'), CHAT_FADE_DELAY);
+        }
+        controls.lock();
+    }
+
+    function sendChatMessage(text) {
+        if (isMultiplayer && ws && ws.readyState === 1) {
+            ws.send(JSON.stringify({ type: 'chat', message: text }));
+        } else {
+            addChatMessage(`<${playerName}> ${text}`);
+        }
+    }
+
+    chatInputField.addEventListener('keydown', (e) => {
+        e.stopPropagation();
+        if (e.code === 'Enter') { e.preventDefault(); closeChatInput(true); }
+        else if (e.code === 'Escape') { e.preventDefault(); closeChatInput(false); }
+    });
 
     function triggerBedSleepTransition(){
         isSleeping=true;resetMiningState();controls.unlock();instructions.style.display='none';
@@ -2465,6 +2659,9 @@
     //  KEYBOARD INPUT  (uses gameSettings.keybinds, handles keybind capture)
     // =====================================================================
     document.addEventListener('keydown', (event) => {
+        // ── Chat is open: let the chat input field's own listener handle everything ──
+        if (isChatOpen) return;
+
         // ── Keybind capture mode ──
         if (listeningForKeybind !== null) {
             event.preventDefault();
@@ -2522,6 +2719,9 @@
         else if (event.code.startsWith('Digit')) {
             const idx = parseInt(event.code.replace('Digit','')) - 1;
             if (idx >= 0 && idx < 7) { activeSlotIndex = idx; updateInventoryUI(); }
+        }
+        else if (event.code === 'KeyT') {
+            openChatInput();
         }
     });
 
@@ -2648,7 +2848,7 @@
             }
         }
 
-        if (controls.isLocked && !isSleeping) {
+        if (!isSleeping) {
             processSheepAI(time,delta); processZombieAI(time,delta);
             updateDroppedItems(delta, time);
             if(isMultiplayer) interpolateRemotePlayers(delta);
@@ -2775,7 +2975,7 @@
     updateHUDVisuals();
     animate();
     renderer.domElement.addEventListener('click', () => {
-        if (gameStarted && !isUIOpen && !isSleeping && !isGamePaused && !controls.isLocked) {
+        if (gameStarted && !isUIOpen && !isChatOpen && !isSleeping && !isGamePaused && !controls.isLocked) {
             controls.lock();
         }
     });

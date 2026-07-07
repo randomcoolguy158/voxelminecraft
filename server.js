@@ -177,6 +177,15 @@ wss.on('connection', (ws) => {
                 break;
             }
 
+            case 'chat': {
+                if (!player) return;
+                const text = String(msg.message || '').slice(0, 256).replace(/[<>&]/g, '').trim();
+                if (!text) return; // reject empty/whitespace-only messages
+                broadcast({ type: 'chat', id, name: player.name, message: text }, null);
+                console.log(`[Chat] ${player.name}: ${text}`);
+                break;
+            }
+
             case 'break': {
                 if (!player) return;
                 const key = gk(msg.x, msg.y, msg.z);
