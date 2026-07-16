@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Voxel Builder - Night Zombies Update</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #87CEEB; font-family: sans-serif; user-select: none; }
@@ -361,15 +361,18 @@
 
         /* ==================== CHAT SYSTEM ==================== */
         #chat-messages {
-            position: absolute; left: 12px; bottom: 92px; width: 480px; max-height: 260px;
+            position: absolute; left: 12px; bottom: 132px; width: 480px; max-height: 220px;
             display: flex; flex-direction: column; justify-content: flex-end; gap: 2px;
             pointer-events: none; z-index: 8; overflow: hidden;
         }
-        #chat-messages.chat-log-open { max-height: 320px; background: rgba(0,0,0,0.35); padding: 6px; border-radius: 4px; overflow-y: auto; }
+        #chat-messages.chat-log-open {
+            max-height: 340px; background: rgba(0,0,0,0.35); padding: 6px; border-radius: 4px;
+            overflow-y: auto; pointer-events: auto; justify-content: flex-start;
+        }
         .chat-line {
             color: #fff; font-size: 13px; text-shadow: 1px 1px 2px black; background: rgba(0,0,0,0.45);
             padding: 3px 6px; border-radius: 3px; width: fit-content; max-width: 100%;
-            word-wrap: break-word; opacity: 1; transition: opacity 0.6s ease;
+            word-wrap: break-word; opacity: 1; transition: opacity 0.6s ease; flex-shrink: 0;
         }
         .chat-line.system { color: #ffd97a; font-style: italic; }
         .chat-line.fading { opacity: 0; }
@@ -381,6 +384,66 @@
             width: 100%; box-sizing: border-box; background: rgba(0,0,0,0.75); border: 2px solid #666;
             border-radius: 4px; color: #fff; font-size: 14px; padding: 6px 8px; outline: none;
         }
+
+        /* ===================== TOUCH CONTROLS ===================== */
+        /* Container is pointer-events:none so it never blocks clicks/taps;
+           each interactive zone/button re-enables pointer-events itself. */
+        #touch-controls {
+            position: fixed; inset: 0; z-index: 9;
+            pointer-events: none; display: none;
+        }
+        #touch-controls.active { display: block; }
+
+        #touch-look-zone {
+            position: absolute; top: 0; right: 0; width: 55%; height: 100%;
+            pointer-events: auto; touch-action: none; z-index: 6;
+        }
+
+        #touch-joystick-zone {
+            position: absolute; left: 0; bottom: 0; width: 45%; height: 60%;
+            pointer-events: auto; touch-action: none; z-index: 7;
+        }
+        #touch-joystick-base {
+            position: absolute; left: 90px; bottom: 90px; width: 110px; height: 110px;
+            transform: translate(-50%, 50%);
+            background: rgba(46,52,64,0.45); border: 2px solid rgba(216,222,233,0.55);
+            border-radius: 50%; pointer-events: none;
+        }
+        #touch-joystick-knob {
+            position: absolute; left: 50%; top: 50%; width: 48px; height: 48px;
+            transform: translate(-50%, -50%);
+            background: rgba(216,222,233,0.65); border: 2px solid rgba(46,52,64,0.6);
+            border-radius: 50%; pointer-events: none; transition: background 0.1s;
+        }
+
+        .touch-btn {
+            position: absolute; display: flex; align-items: center; justify-content: center;
+            width: 62px; height: 62px; border-radius: 50%;
+            background: rgba(46,52,64,0.55); border: 2px solid rgba(216,222,233,0.55);
+            color: #eceff4; font-size: 24px; font-family: 'Courier New', monospace;
+            pointer-events: auto; touch-action: none; z-index: 10; user-select: none;
+        }
+        .touch-btn:active, .touch-btn.pressed { background: rgba(216,222,233,0.35); }
+        .touch-btn.small { width: 50px; height: 50px; font-size: 19px; }
+
+        #touch-btn-mine   { right: 96px;  bottom: 76px; }
+        #touch-btn-use    { right: 30px;  bottom: 150px; }
+        #touch-btn-jump   { right: 168px; bottom: 60px; }
+        #touch-btn-sneak  { right: 20px;  bottom: 30px; }
+        #touch-btn-sprint { right: 96px;  bottom: 168px; }
+
+        /* Landscape phones are short — pull the whole cluster down/in a bit
+           so it doesn't creep into the middle of the view. */
+        @media (max-height: 420px) {
+            #touch-joystick-base { left: 70px; bottom: 20px; width: 90px; height: 90px; }
+            .touch-btn { width: 52px; height: 52px; font-size: 20px; }
+            #touch-btn-mine   { right: 82px; bottom: 18px; }
+            #touch-btn-use    { right: 24px; bottom: 78px; }
+            #touch-btn-jump   { right: 144px; bottom: 14px; }
+            #touch-btn-sneak  { right: 18px;  bottom: 16px; }
+            #touch-btn-sprint { right: 82px;  bottom: 84px; }
+        }
+        /* ===================== END TOUCH CONTROLS ===================== */
     </style>
 </head>
 <body>
@@ -444,6 +507,15 @@
             </div>
             <div class="settings-hint">↑ Changes apply when you move to a new area.</div>
 
+            <div class="settings-section-title">Touch</div>
+            <div class="settings-row">
+                <span class="settings-label">Touch Controls</span>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                    <input type="checkbox" id="touch-controls-toggle" style="width:18px;height:18px;cursor:pointer;">
+                    <span class="settings-value" id="touch-controls-value">On</span>
+                </label>
+            </div>
+
             <div class="settings-section-title">Controls &nbsp;<span style="font-size:9px;color:#4c566a;letter-spacing:1px;">— click a key to rebind — esc to cancel</span></div>
             <div id="keybinds-container"></div>
 
@@ -488,8 +560,24 @@
 
     <div id="chat-messages"></div>
     <div id="chat-input-container">
-        <input type="text" id="chat-input-field" maxlength="256" placeholder="Press Enter to send, Esc to cancel" autocomplete="off">
+        <input type="text" id="chat-input-field" maxlength="256" placeholder="Press Enter to send, Tab to cancel" autocomplete="off">
     </div>
+
+    <!-- ==================== TOUCH CONTROLS ==================== -->
+    <div id="touch-controls">
+        <div id="touch-look-zone"></div>
+        <div id="touch-joystick-zone">
+            <div id="touch-joystick-base">
+                <div id="touch-joystick-knob"></div>
+            </div>
+        </div>
+        <div class="touch-btn" id="touch-btn-jump"   title="Jump">⬆</div>
+        <div class="touch-btn small" id="touch-btn-sneak"  title="Sneak">⬇</div>
+        <div class="touch-btn small" id="touch-btn-sprint" title="Sprint">⚡</div>
+        <div class="touch-btn" id="touch-btn-mine"   title="Mine / Attack (hold)">⛏</div>
+        <div class="touch-btn small" id="touch-btn-use"    title="Use / Place">✋</div>
+    </div>
+    <!-- ==================== END TOUCH CONTROLS ==================== -->
 
     <div id="hotbar">
         <div class="slot active" id="slot-0"><span class="key-bind">1</span><div class="block-icon"></div><span class="label"></span><span class="count">0</span></div>
@@ -604,9 +692,14 @@
         right: 'Strafe Right', jump: 'Jump', inventory: 'Inventory'
     };
 
+    // Detect touch-capable devices so touch controls default to visible there
+    // and hidden everywhere else. The player can still override this in Settings.
+    const isTouchDevice = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+
     let gameSettings = {
         fov: 75,
         renderDistance: 2,
+        touchControls: isTouchDevice,
         keybinds: Object.assign({}, DEFAULT_KEYBINDS)
     };
 
@@ -617,6 +710,7 @@
                 const p = JSON.parse(saved);
                 if (p.fov)             gameSettings.fov = Math.max(60, Math.min(110, p.fov));
                 if (p.renderDistance)  gameSettings.renderDistance = Math.max(1, Math.min(5, p.renderDistance));
+                if (typeof p.touchControls === 'boolean') gameSettings.touchControls = p.touchControls;
                 if (p.keybinds)        Object.assign(gameSettings.keybinds, p.keybinds);
             }
         } catch(e) {}
@@ -657,6 +751,10 @@
         rdSlider.value  = gameSettings.renderDistance;
         document.getElementById('fov-value').textContent = gameSettings.fov + '°';
         document.getElementById('rd-value').textContent  = RENDER_DISTANCE_CONFIGS[gameSettings.renderDistance - 1].label;
+
+        // Sync touch controls toggle
+        document.getElementById('touch-controls-toggle').checked = gameSettings.touchControls;
+        document.getElementById('touch-controls-value').textContent = gameSettings.touchControls ? 'On' : 'Off';
 
         // Render keybind rows
         const container = document.getElementById('keybinds-container');
@@ -727,6 +825,12 @@
     document.getElementById('rd-slider').addEventListener('input', (e) => {
         gameSettings.renderDistance = parseInt(e.target.value);
         document.getElementById('rd-value').textContent = RENDER_DISTANCE_CONFIGS[gameSettings.renderDistance - 1].label;
+        applySettings();
+    });
+    document.getElementById('touch-controls-toggle').addEventListener('change', (e) => {
+        gameSettings.touchControls = e.target.checked;
+        document.getElementById('touch-controls-value').textContent = gameSettings.touchControls ? 'On' : 'Off';
+        persistSettings();
         applySettings();
     });
     document.getElementById('settings-back-btn').addEventListener('click', closeSettings);
@@ -918,6 +1022,7 @@
     }
 
     document.getElementById('btn-title-new').addEventListener('click', () => {
+        clearChatLog();
         generateWorld(false);
         hideTitleScreen();
         initMusicSystem();
@@ -927,6 +1032,7 @@
     document.getElementById('btn-title-continue').addEventListener('click', () => {
         const save = getSaveData();
         if (!save) return;
+        clearChatLog();
         generateWorld(true, save);
         hideTitleScreen();
         initMusicSystem();
@@ -945,6 +1051,7 @@
         const address = prompt('Server address:', 'localhost:8080');
         if (!address) return;
         playerName = (prompt('Your player name:', 'Player') || 'Player').slice(0, 16);
+        clearChatLog();
         isMultiplayer = true;
         // Pre-generate seeds in case we are the very first player on this server
         terrainSeedX = Math.random() * 10000;
@@ -989,6 +1096,7 @@
     function showPauseMenu() {
         isGamePaused = true;
         pauseMenuEl.style.display = 'flex';
+        releaseAllTouchInput();
     }
 
     function hidePauseMenu() {
@@ -1009,6 +1117,10 @@
         furnaceScreenEl.style.display  = 'none';
         chestScreenEl.style.display    = 'none';
         isUIOpen = false;
+        chatInputContainer.style.display = 'none';
+        chatMessagesEl.classList.remove('chat-log-open');
+        isChatOpen = false;
+        clearChatLog();
 
         // Clear world state
         for(let i = objects.length - 1; i >= 0; i--) scene.remove(objects[i]);
@@ -1079,7 +1191,7 @@
 
     document.getElementById('btn-resume').addEventListener('click', () => {
         hidePauseMenu();
-        controls.lock();
+        setTimeout(() => controls.lock(), 0);
     });
     document.getElementById('btn-pause-settings').addEventListener('click', () => {
         hidePauseMenu();
@@ -1279,6 +1391,7 @@
     const furnaceResultSlot = { type:null, count:0 };
     let activeSlotIndex = 0; let isUIOpen = false;
     let isChatOpen = false;
+    let chatUnlockPending = false; // true while waiting for the unlock event caused by opening chat
     const chatMessages = []; // { text, isSystem, el, fadeTimer }
     const CHAT_FADE_DELAY = 6000; // ms before a message starts fading (Minecraft-like)
 
@@ -1548,6 +1661,7 @@
         UNLOAD_RADIUS_CHUNKS = cfg.chunks + 1;
         worldFog.near = cfg.fogNear;
         worldFog.far  = cfg.fogFar;
+        document.getElementById('touch-controls').classList.toggle('active', !!gameSettings.touchControls);
     }
 
     function checkIsNighttimeCurrently() {
@@ -1617,7 +1731,7 @@
     }
 
     function handleGlobalDayNightCycle(delta) {
-        if (controls.isLocked && !isSleeping) totalPlaytimeElapsed += delta;
+        if (isEffectivelyLocked() && !isSleeping) totalPlaytimeElapsed += delta;
         const ct = totalPlaytimeElapsed % FULL_CYCLE_DURATION;
         if (ct<HALF_CYCLE_DURATION) globalNightLerpRatio=0;
         else if (ct<HALF_CYCLE_DURATION+TRANSITION_SPEED) globalNightLerpRatio=(ct-HALF_CYCLE_DURATION)/TRANSITION_SPEED;
@@ -2086,7 +2200,7 @@
     }
 
     function updateDroppedItems(delta, currentTime) {
-        if (!controls.isLocked) return;
+        if (!isEffectivelyLocked()) return;
         const pp = controls.getObject().position;
         for (let i = droppedItems.length - 1; i >= 0; i--) {
             const item = droppedItems[i];
@@ -2423,16 +2537,21 @@
     function toggleInventoryMenu(){
         if(isSleeping || isGamePaused || !gameStarted)return;
         if(isUIOpen){controls.lock();}
-        else{isUIOpen=true;controls.unlock();instructions.style.display='none';storageScreenEl.style.display='block';updateInventoryUI();}
+        else{isUIOpen=true;controls.unlock();releaseAllTouchInput();instructions.style.display='none';storageScreenEl.style.display='block';updateInventoryUI();}
     }
-    function openWorkbenchMenu(){isUIOpen=true;controls.unlock();instructions.style.display='none';craftingScreenEl.style.display='block';updateInventoryUI();}
-    function openFurnaceMenu(){isUIOpen=true;controls.unlock();instructions.style.display='none';furnaceScreenEl.style.display='block';updateInventoryUI();}
-    function openChestMenu(key){openChestKey=key;chestSlots=getChestSlotsFor(key);isUIOpen=true;controls.unlock();instructions.style.display='none';chestScreenEl.style.display='block';updateInventoryUI();}
+    function openWorkbenchMenu(){isUIOpen=true;controls.unlock();releaseAllTouchInput();instructions.style.display='none';craftingScreenEl.style.display='block';updateInventoryUI();}
+    function openFurnaceMenu(){isUIOpen=true;controls.unlock();releaseAllTouchInput();instructions.style.display='none';furnaceScreenEl.style.display='block';updateInventoryUI();}
+    function openChestMenu(key){openChestKey=key;chestSlots=getChestSlotsFor(key);isUIOpen=true;controls.unlock();releaseAllTouchInput();instructions.style.display='none';chestScreenEl.style.display='block';updateInventoryUI();}
 
     // ==================== CHAT SYSTEM ====================
     const chatMessagesEl    = document.getElementById('chat-messages');
     const chatInputContainer = document.getElementById('chat-input-container');
     const chatInputField    = document.getElementById('chat-input-field');
+
+    function scheduleFade(entry) {
+        clearTimeout(entry.fadeTimer);
+        entry.fadeTimer = setTimeout(() => entry.el.classList.add('fading'), CHAT_FADE_DELAY);
+    }
 
     function addChatMessage(text, isSystem = false) {
         const el = document.createElement('div');
@@ -2447,26 +2566,37 @@
         while (chatMessages.length > 100) {
             const old = chatMessages.shift();
             if (old.el.parentNode) old.el.parentNode.removeChild(old.el);
+            clearTimeout(old.fadeTimer);
         }
 
-        // Auto-scroll the log to the newest message when it's open
-        if (isChatOpen) chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+        if (isChatOpen) {
+            // Chat log is open: keep the message fully visible and scroll to it.
+            // Do NOT schedule a fade — closeChatInput() re-arms fades for everyone at once.
+            chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+        } else {
+            scheduleFade(entry);
+        }
+    }
 
-        // Fade out after a delay, unless the chat log is currently open
-        entry.fadeTimer = setTimeout(() => {
-            if (!isChatOpen) el.classList.add('fading');
-        }, CHAT_FADE_DELAY);
+    function clearChatLog() {
+        for (const m of chatMessages) {
+            clearTimeout(m.fadeTimer);
+            if (m.el.parentNode) m.el.parentNode.removeChild(m.el);
+        }
+        chatMessages.length = 0;
     }
 
     function openChatInput() {
         isChatOpen = true;
+        releaseAllTouchInput();
+        // Actually release Pointer Lock so the real cursor becomes visible/usable
+        // while chat is open (matches how the inventory/crafting menus do it).
         controls.unlock();
-        instructions.style.display = 'none';
         chatInputContainer.style.display = 'flex';
         chatInputField.value = '';
         chatMessagesEl.classList.add('chat-log-open');
-        // Un-fade everything while the log is open so history is fully readable
-        for (const m of chatMessages) m.el.classList.remove('fading');
+        // Un-fade everything and stop any pending fade while the log is open
+        for (const m of chatMessages) { clearTimeout(m.fadeTimer); m.el.classList.remove('fading'); }
         chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
         setTimeout(() => chatInputField.focus(), 0);
     }
@@ -2477,15 +2607,17 @@
             sendChatMessage(text);
         }
         chatInputField.value = '';
+        chatInputField.blur();
         chatInputContainer.style.display = 'none';
         chatMessagesEl.classList.remove('chat-log-open');
         isChatOpen = false;
-        // Re-arm fade timers now that the log is closing
-        for (const m of chatMessages) {
-            clearTimeout(m.fadeTimer);
-            m.fadeTimer = setTimeout(() => m.el.classList.add('fading'), CHAT_FADE_DELAY);
-        }
-        controls.lock();
+        // Re-arm fade timers for everything now that the log is closing, so the
+        // whole history (including whatever was just sent) fades out together.
+        for (const m of chatMessages) scheduleFade(m);
+        // Defer the re-lock by one tick so it's never considered part of the
+        // triggering keydown's call stack (browsers can silently block a
+        // requestPointerLock() issued directly from certain key handlers).
+        setTimeout(() => controls.lock(), 0);
     }
 
     function sendChatMessage(text) {
@@ -2499,7 +2631,7 @@
     chatInputField.addEventListener('keydown', (e) => {
         e.stopPropagation();
         if (e.code === 'Enter') { e.preventDefault(); closeChatInput(true); }
-        else if (e.code === 'Escape') { e.preventDefault(); closeChatInput(false); }
+        else if (e.code === 'Tab') { e.preventDefault(); closeChatInput(false); }
     });
 
     function triggerBedSleepTransition(){
@@ -2571,86 +2703,93 @@
     const raycaster=new THREE.Raycaster(), center=new THREE.Vector2(0,0), MAX_REACH=4.5;
     function resetMiningState(){isMiningRequested=false;miningTargetBlock=null;miningStartTime=0;uiMiningWarning.style.display='none';if(visualCrackOverlayMesh){scene.remove(visualCrackOverlayMesh);visualCrackOverlayMesh=null;}}
 
+    // Left-click / Mine button: attack a mob in reach, or start mining the
+    // block in reach. Shared by the mouse handler and the touch mine button.
+    function performAttackOrMine() {
+        raycaster.setFromCamera(center, camera);
+        const mobMeshes=[];
+        sheepGroupArray.forEach(g=>g.children.forEach(c=>{c.userData.parentGroup=g;mobMeshes.push(c);}));
+        zombieGroupArray.forEach(z=>z.children.forEach(c=>{c.userData.parentGroup=z;mobMeshes.push(c);}));
+        const mobHits=raycaster.intersectObjects(mobMeshes,false);
+        if(mobHits.length>0&&mobHits[0].distance<=MAX_REACH){
+            const root=mobHits[0].object.userData.parentGroup;
+            if(root){
+                root.userData.health--;
+                const pp=controls.getObject().position;
+                const dir=new THREE.Vector3().subVectors(root.position,pp).setY(0).normalize();
+                root.userData.velocity.x=dir.x*20; root.userData.velocity.z=dir.z*20; root.userData.velocity.y=6.5; root.userData.onGround=false;
+                if(root.userData.health<=0){if(root.userData.isZombie){scene.remove(root);zombieGroupArray.splice(zombieGroupArray.indexOf(root),1);}else{spawnDroppedItem('raw_mutton',root.position.x,root.position.y,root.position.z);spawnDroppedItem('wool',root.position.x+0.3,root.position.y,root.position.z+0.3);scene.remove(root);sheepGroupArray.splice(sheepGroupArray.indexOf(root),1);setTimeout(()=>{spawnRandomWorldSheep();},60000);}}
+                return;
+            }
+        }
+        const hits=raycaster.intersectObjects(objects,true);
+        if(hits.length>0&&hits[0].distance<=MAX_REACH){let t=hits[0].object;while(t.parent&&t.parent!==scene)t=t.parent;isMiningRequested=true;}
+    }
+
+    // Right-click / Use button: eat, interact with a block, or place the
+    // active hotbar item. Shared by the mouse handler and the touch use button.
+    function performUseOrPlace() {
+        const activeSlot = hotbarSlots[activeSlotIndex];
+        if(activeSlot&&activeSlot.count>0){
+            if(activeSlot.type==='raw_mutton'){if(playerHunger>=MAX_HUNGER)return;playerHunger=Math.min(MAX_HUNGER,playerHunger+1.5);consumeItems('raw_mutton',1);updateHUDVisuals();return;}
+            if(activeSlot.type==='cooked_mutton'){if(playerHunger>=MAX_HUNGER)return;playerHunger=Math.min(MAX_HUNGER,playerHunger+3.0);consumeItems('cooked_mutton',1);updateHUDVisuals();return;}
+        }
+        raycaster.setFromCamera(center,camera);
+        const intersects=raycaster.intersectObjects(objects,true);
+        if(intersects.length===0||intersects[0].distance>MAX_REACH)return;
+        let tObj=intersects[0].object; while(tObj.parent&&tObj.parent!==scene)tObj=tObj.parent;
+        const tType=tObj.userData.type;
+
+        // ── Interactable blocks: blocked while sneaking ──────────────
+        if(tType==='bed'){
+            if(!isCrouching){if(checkIsNighttimeCurrently())triggerBedSleepTransition();else alert("You can only sleep at night!");}
+            return;
+        }
+        if(tType==='crafting_table'){ if(!isCrouching){resetMiningState();openWorkbenchMenu();} return; }
+        if(tType==='furnace'){         if(!isCrouching){resetMiningState();openFurnaceMenu();}   return; }
+        if(tType==='chest'){           if(!isCrouching){resetMiningState();openChestMenu(gridKey(tObj.position.x,tObj.position.y,tObj.position.z));}     return; }
+        // ─────────────────────────────────────────────────────────────
+
+        if(!activeSlot||!activeSlot.type||activeSlot.count<=0||activeSlot.type.endsWith('pickaxe')||activeSlot.type.endsWith('axe')||activeSlot.type==='sticks'||activeSlot.type==='iron_ingot'||activeSlot.type==='diamond'||activeSlot.type==='cooked_mutton')return;
+        const curType=activeSlot.type, intx=intersects[0];
+        const targetPos=new THREE.Vector3().copy(intx.point).add(intx.face.normal.clone().multiplyScalar(0.1));
+        const bc=new THREE.Vector3(Math.floor(targetPos.x+.5),Math.floor(targetPos.y+.5),Math.floor(targetPos.z+.5));
+        const pp=controls.getObject().position;
+
+        if(curType==='bed'){
+            const ld=new THREE.Vector3(); camera.getWorldDirection(ld);
+            let dx2=0,dz2=0;
+            if(Math.abs(ld.x)>Math.abs(ld.z))dx2=ld.x>0?1:-1; else dz2=ld.z>0?1:-1;
+            const fx=bc.x,fy=bc.y,fz=bc.z,hx=fx+dx2,hz=fz+dz2;
+            if(isSpaceOccupied(fx,fy,fz)||isSpaceOccupied(hx,fy,hz))return;
+            const pr=playerRadius, ph=playerHeightOffset;
+            if((pp.x+pr>fx-.5&&pp.x-pr<fx+.5&&pp.z+pr>fz-.5&&pp.z-pr<fz+.5&&pp.y+.2>fy-.5&&pp.y-ph<fy+.5)||(pp.x+pr>hx-.5&&pp.x-pr<hx+.5&&pp.z+pr>hz-.5&&pp.z-pr<hz+.5&&pp.y+.2>fy-.5&&pp.y-ph<fy+.5))return;
+            consumeItems('bed',1);
+            spawnTwoBlockBed(fx,fy,fz,dx2,dz2);
+            playerPlacedBeds.push({footX:fx,footY:fy,footZ:fz,dirX:dx2,dirZ:dz2});
+            return;
+        }
+        if(curType==='torch'){
+                        if(isSpaceOccupied(bc.x,bc.y,bc.z))return;
+                        consumeItems('torch',1);
+                        spawnTorchLightMeshNode(bc.x,bc.y,bc.z);
+                        playerPlacedTorches.push({x:bc.x,y:bc.y,z:bc.z});
+                        if(isMultiplayer&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'place',x:bc.x,y:bc.y,z:bc.z,blockType:'torch'}));}
+                        return;
+                    }
+        if(pp.x+playerRadius>bc.x-.5&&pp.x-playerRadius<bc.x+.5&&pp.z+playerRadius>bc.z-.5&&pp.z-playerRadius<bc.z+.5&&pp.y+.2>bc.y-.5&&pp.y-playerHeightOffset<bc.y+.5)return;
+        const mat=getMaterialForType(curType);
+        if(!mat)return;
+        consumeItems(curType,1);
+                    createBlock(bc.x,bc.y,bc.z,mat,curType);
+                    playerPlacedBlocks.set(gridKey(bc.x,bc.y,bc.z),{type:curType,x:bc.x,y:bc.y,z:bc.z});
+                    if(isMultiplayer&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'place',x:bc.x,y:bc.y,z:bc.z,blockType:curType}));}
+    }
+
     document.addEventListener('mousedown', (event) => {
         if (!controls.isLocked || isUIOpen || isSleeping || !gameStarted) return;
-        const activeSlot = hotbarSlots[activeSlotIndex];
-
-        if (event.button === 0) {
-            raycaster.setFromCamera(center, camera);
-            const mobMeshes=[];
-            sheepGroupArray.forEach(g=>g.children.forEach(c=>{c.userData.parentGroup=g;mobMeshes.push(c);}));
-            zombieGroupArray.forEach(z=>z.children.forEach(c=>{c.userData.parentGroup=z;mobMeshes.push(c);}));
-            const mobHits=raycaster.intersectObjects(mobMeshes,false);
-            if(mobHits.length>0&&mobHits[0].distance<=MAX_REACH){
-                const root=mobHits[0].object.userData.parentGroup;
-                if(root){
-                    root.userData.health--;
-                    const pp=controls.getObject().position;
-                    const dir=new THREE.Vector3().subVectors(root.position,pp).setY(0).normalize();
-                    root.userData.velocity.x=dir.x*20; root.userData.velocity.z=dir.z*20; root.userData.velocity.y=6.5; root.userData.onGround=false;
-                    if(root.userData.health<=0){if(root.userData.isZombie){scene.remove(root);zombieGroupArray.splice(zombieGroupArray.indexOf(root),1);}else{spawnDroppedItem('raw_mutton',root.position.x,root.position.y,root.position.z);spawnDroppedItem('wool',root.position.x+0.3,root.position.y,root.position.z+0.3);scene.remove(root);sheepGroupArray.splice(sheepGroupArray.indexOf(root),1);setTimeout(()=>{spawnRandomWorldSheep();},60000);}}
-                    return;
-                }
-            }
-            const hits=raycaster.intersectObjects(objects,true);
-            if(hits.length>0&&hits[0].distance<=MAX_REACH){let t=hits[0].object;while(t.parent&&t.parent!==scene)t=t.parent;isMiningRequested=true;}
-        }
-        else if (event.button === 2) {
-            if(activeSlot&&activeSlot.count>0){
-                if(activeSlot.type==='raw_mutton'){if(playerHunger>=MAX_HUNGER)return;playerHunger=Math.min(MAX_HUNGER,playerHunger+1.5);consumeItems('raw_mutton',1);updateHUDVisuals();return;}
-                if(activeSlot.type==='cooked_mutton'){if(playerHunger>=MAX_HUNGER)return;playerHunger=Math.min(MAX_HUNGER,playerHunger+3.0);consumeItems('cooked_mutton',1);updateHUDVisuals();return;}
-            }
-            raycaster.setFromCamera(center,camera);
-            const intersects=raycaster.intersectObjects(objects,true);
-            if(intersects.length===0||intersects[0].distance>MAX_REACH)return;
-            let tObj=intersects[0].object; while(tObj.parent&&tObj.parent!==scene)tObj=tObj.parent;
-            const tType=tObj.userData.type;
-
-            // ── Interactable blocks: blocked while sneaking ──────────────
-            if(tType==='bed'){
-                if(!isCrouching){if(checkIsNighttimeCurrently())triggerBedSleepTransition();else alert("You can only sleep at night!");}
-                return;
-            }
-            if(tType==='crafting_table'){ if(!isCrouching){resetMiningState();openWorkbenchMenu();} return; }
-            if(tType==='furnace'){         if(!isCrouching){resetMiningState();openFurnaceMenu();}   return; }
-            if(tType==='chest'){           if(!isCrouching){resetMiningState();openChestMenu(gridKey(tObj.position.x,tObj.position.y,tObj.position.z));}     return; }
-            // ─────────────────────────────────────────────────────────────
-
-            if(!activeSlot||!activeSlot.type||activeSlot.count<=0||activeSlot.type.endsWith('pickaxe')||activeSlot.type.endsWith('axe')||activeSlot.type==='sticks'||activeSlot.type==='iron_ingot'||activeSlot.type==='diamond'||activeSlot.type==='cooked_mutton')return;
-            const curType=activeSlot.type, intx=intersects[0];
-            const targetPos=new THREE.Vector3().copy(intx.point).add(intx.face.normal.clone().multiplyScalar(0.1));
-            const bc=new THREE.Vector3(Math.floor(targetPos.x+.5),Math.floor(targetPos.y+.5),Math.floor(targetPos.z+.5));
-            const pp=controls.getObject().position;
-
-            if(curType==='bed'){
-                const ld=new THREE.Vector3(); camera.getWorldDirection(ld);
-                let dx2=0,dz2=0;
-                if(Math.abs(ld.x)>Math.abs(ld.z))dx2=ld.x>0?1:-1; else dz2=ld.z>0?1:-1;
-                const fx=bc.x,fy=bc.y,fz=bc.z,hx=fx+dx2,hz=fz+dz2;
-                if(isSpaceOccupied(fx,fy,fz)||isSpaceOccupied(hx,fy,hz))return;
-                const pr=playerRadius, ph=playerHeightOffset;
-                if((pp.x+pr>fx-.5&&pp.x-pr<fx+.5&&pp.z+pr>fz-.5&&pp.z-pr<fz+.5&&pp.y+.2>fy-.5&&pp.y-ph<fy+.5)||(pp.x+pr>hx-.5&&pp.x-pr<hx+.5&&pp.z+pr>hz-.5&&pp.z-pr<hz+.5&&pp.y+.2>fy-.5&&pp.y-ph<fy+.5))return;
-                consumeItems('bed',1);
-                spawnTwoBlockBed(fx,fy,fz,dx2,dz2);
-                playerPlacedBeds.push({footX:fx,footY:fy,footZ:fz,dirX:dx2,dirZ:dz2});
-                return;
-            }
-            if(curType==='torch'){
-                            if(isSpaceOccupied(bc.x,bc.y,bc.z))return;
-                            consumeItems('torch',1);
-                            spawnTorchLightMeshNode(bc.x,bc.y,bc.z);
-                            playerPlacedTorches.push({x:bc.x,y:bc.y,z:bc.z});
-                            if(isMultiplayer&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'place',x:bc.x,y:bc.y,z:bc.z,blockType:'torch'}));}
-                            return;
-                        }
-            if(pp.x+playerRadius>bc.x-.5&&pp.x-playerRadius<bc.x+.5&&pp.z+playerRadius>bc.z-.5&&pp.z-playerRadius<bc.z+.5&&pp.y+.2>bc.y-.5&&pp.y-playerHeightOffset<bc.y+.5)return;
-            const mat=getMaterialForType(curType);
-            if(!mat)return;
-            consumeItems(curType,1);
-                        createBlock(bc.x,bc.y,bc.z,mat,curType);
-                        playerPlacedBlocks.set(gridKey(bc.x,bc.y,bc.z),{type:curType,x:bc.x,y:bc.y,z:bc.z});
-                        if(isMultiplayer&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'place',x:bc.x,y:bc.y,z:bc.z,blockType:curType}));}
-        }
+        if (event.button === 0)      performAttackOrMine();
+        else if (event.button === 2) performUseOrPlace();
     });
 
     document.addEventListener('mouseup', (e) => { if(e.button===0)resetMiningState(); });
@@ -2704,6 +2843,7 @@
         else if (event.code === gameSettings.keybinds.right)     { moveRight     = true; }
         else if (event.code === gameSettings.keybinds.jump)      { if(canJump){velocity.y+=8.5;canJump=false;} }
         else if (event.code === 'KeyZ')                          { isCrouching   = true; }
+        else if (event.code === 'ShiftLeft' || event.code === 'ShiftRight') { isSprinting = true; }
         else if (event.code === 'KeyQ') {
             const slot = hotbarSlots[activeSlotIndex];
             if (slot && slot.type && slot.count > 0) {
@@ -2731,6 +2871,7 @@
         if (e.code === gameSettings.keybinds.left)     moveLeft     = false;
         if (e.code === gameSettings.keybinds.right)    moveRight    = false;
         if (e.code === 'KeyZ')                         isCrouching  = false;
+        if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') isSprinting = false;
     });
 
     function setupVisualMiningMesh(targetBlock){
@@ -2795,6 +2936,8 @@
     // Player movement state
     let prevTime=performance.now();
     let moveForward=false,moveBackward=false,moveLeft=false,moveRight=false,canJump=false;
+    let isSprinting=false;      // held while sprinting (touch sprint button, or Shift on desktop)
+    let touchJumpHeld=false;    // true while the touch jump button is held down
     let isCrouching=false;
     let velocity=new THREE.Vector3(), direction=new THREE.Vector3();
 
@@ -2829,7 +2972,7 @@
         updateHUDVisuals(); handleHealthRegeneration(time); handleGlobalDayNightCycle(delta);
         updateMusicSystem(delta);
 
-        if (controls.isLocked) {
+        if (isEffectivelyLocked()) {
             autoSaveAccum += delta;
             if (autoSaveAccum >= AUTO_SAVE_INTERVAL) { autoSaveAccum=0; if(!isMultiplayer) saveGame(); }
             if (isMultiplayer && ws && ws.readyState === 1) {
@@ -2856,7 +2999,7 @@
 
             // ── Update player height and crouch indicator ─────────────────
             const crouchIndicatorEl = document.getElementById('crouch-indicator');
-            crouchIndicatorEl.style.display = (isCrouching && controls.isLocked) ? 'block' : 'none';
+            crouchIndicatorEl.style.display = (isCrouching && isEffectivelyLocked()) ? 'block' : 'none';
 
             // ── Smoothly lower/raise camera when crouching ────────────────
             
@@ -2920,8 +3063,12 @@
                 }else{resetMiningState();}
             }
 
-            // ── Movement speed: 30% slower when crouching ─────────────────
-            const moveSpeed = isCrouching ? 14.0 : 40.0;
+            // ── Movement speed: 30% slower when crouching, faster when sprinting ──
+            const moveSpeed = isCrouching ? 14.0 : (isSprinting ? 56.0 : 40.0);
+            // Holding the touch jump button re-triggers a jump every time the
+            // player lands again, the same way holding a keyboard key does
+            // via the browser's native key-repeat.
+            if(touchJumpHeld && canJump){velocity.y+=8.5;canJump=false;}
             velocity.x-=velocity.x*10.0*delta; velocity.z-=velocity.z*10.0*delta; velocity.y-=9.8*2.5*delta;
             direction.z=Number(moveForward)-Number(moveBackward); direction.x=Number(moveRight)-Number(moveLeft); direction.normalize();
             if(moveForward||moveBackward)velocity.z-=direction.z*moveSpeed*delta;
@@ -2952,11 +3099,11 @@
             if(playerObj.position.y<-35){alert("You fell into the void!");clearAllInventoriesOnDeath();respawnPlayer();}
         }
 
-        if(controls.isLocked){const cp=controls.getObject().position;updateChunkLoading(cp.x,cp.z);}
+        if(isEffectivelyLocked()){const cp=controls.getObject().position;updateChunkLoading(cp.x,cp.z);}
         processChunkBuildQueue();
 
         // Distance culling using current render-distance setting
-        if(controls.isLocked){
+        if(isEffectivelyLocked()){
             const cx=controls.getObject().position.x,cz=controls.getObject().position.z;
             const cfg=RENDER_DISTANCE_CONFIGS[gameSettings.renderDistance-1];
             const CULL=cfg.cullDist*cfg.cullDist;
@@ -2967,7 +3114,184 @@
         renderer.render(scene,camera);
     }
 
-    // ── Init ──────────────────────────────────────────────────────────────
+    // =====================================================================
+    //  TOUCH CONTROLS
+    //  Mobile input layer: virtual joystick (movement), drag-to-look zone
+    //  (camera), and action buttons (jump/sneak/sprint/mine/use). Everything
+    //  here only ever sets the same state (moveForward, isCrouching,
+    //  isSprinting, isMiningRequested, camera rotation…) that keyboard/mouse
+    //  already drive, so the existing movement/physics/mining/placing code
+    //  is reused as-is — nothing about it was changed for touch.
+    // =====================================================================
+
+    // True whenever the player should be treated as "actively playing",
+    // whether that's via real Pointer Lock (desktop) or the touch layer
+    // (mobile, where Pointer Lock is unreliable/unsupported and unused).
+    function isEffectivelyLocked() {
+        return controls.isLocked || (gameSettings.touchControls && gameStarted && !isUIOpen && !isChatOpen && !isSleeping && !isGamePaused);
+    }
+
+    function touchControlsActive() {
+        return gameSettings.touchControls && gameStarted && !isUIOpen && !isChatOpen && !isSleeping && !isGamePaused;
+    }
+
+    const touchLookZone      = document.getElementById('touch-look-zone');
+    const touchJoystickZone  = document.getElementById('touch-joystick-zone');
+    const touchJoystickKnob  = document.getElementById('touch-joystick-knob');
+    const touchBtnJump       = document.getElementById('touch-btn-jump');
+    const touchBtnSneak      = document.getElementById('touch-btn-sneak');
+    const touchBtnSprint     = document.getElementById('touch-btn-sprint');
+    const touchBtnMine       = document.getElementById('touch-btn-mine');
+    const touchBtnUse        = document.getElementById('touch-btn-use');
+
+    // ── Virtual joystick (movement) ──────────────────────────────────────
+    let joyTouchId = null;
+    let joyOrigin  = { x: 0, y: 0 };
+    const JOY_MAX_RADIUS = 45; // px the knob can travel from its center
+    const JOY_DEAD_ZONE  = 12; // px of play near the center that registers as "no input"
+
+    function updateJoystick(clientX, clientY) {
+        const dx = clientX - joyOrigin.x, dy = clientY - joyOrigin.y;
+        const dist = Math.hypot(dx, dy);
+        const clamped = Math.min(dist, JOY_MAX_RADIUS);
+        const angle = Math.atan2(dy, dx);
+        const kx = Math.cos(angle) * clamped, ky = Math.sin(angle) * clamped;
+        touchJoystickKnob.style.transform = `translate(calc(-50% + ${kx}px), calc(-50% + ${ky}px))`;
+
+        if (dist < JOY_DEAD_ZONE) {
+            moveForward = moveBackward = moveLeft = moveRight = false;
+            return;
+        }
+        // Reuse the exact same 4 directional flags WASD sets, so pushing the
+        // stick diagonally moves diagonally just like pressing two keys at once.
+        moveForward  = ky < -JOY_DEAD_ZONE * 0.5;
+        moveBackward = ky >  JOY_DEAD_ZONE * 0.5;
+        moveLeft     = kx < -JOY_DEAD_ZONE * 0.5;
+        moveRight    = kx >  JOY_DEAD_ZONE * 0.5;
+    }
+
+    function resetJoystick() {
+        moveForward = moveBackward = moveLeft = moveRight = false;
+        touchJoystickKnob.style.transform = 'translate(-50%, -50%)';
+    }
+
+    touchJoystickZone.addEventListener('touchstart', (e) => {
+        if (!touchControlsActive() || joyTouchId !== null) return;
+        const t = e.changedTouches[0];
+        joyTouchId = t.identifier;
+        const rect = touchJoystickZone.getBoundingClientRect();
+        // The joystick is anchored at a fixed spot within the zone (matching
+        // the CSS base position) rather than teleporting to the touch point.
+        joyOrigin = { x: rect.left + 90, y: rect.bottom - 90 };
+        updateJoystick(t.clientX, t.clientY);
+        e.preventDefault();
+    }, { passive: false });
+
+    touchJoystickZone.addEventListener('touchmove', (e) => {
+        if (!touchControlsActive()) { endJoystickTouch({changedTouches:[{identifier:joyTouchId}]}); return; }
+        for (const t of e.changedTouches) {
+            if (t.identifier === joyTouchId) { updateJoystick(t.clientX, t.clientY); break; }
+        }
+        e.preventDefault();
+    }, { passive: false });
+
+    function endJoystickTouch(e) {
+        for (const t of e.changedTouches) {
+            if (t.identifier === joyTouchId) { joyTouchId = null; resetJoystick(); break; }
+        }
+    }
+    touchJoystickZone.addEventListener('touchend', endJoystickTouch, { passive: false });
+    touchJoystickZone.addEventListener('touchcancel', endJoystickTouch, { passive: false });
+
+    // ── Drag-to-look zone (camera) ───────────────────────────────────────
+    // Mirrors PointerLockControls' own math: yaw lives on controls.getObject(),
+    // pitch lives on its parent (the object PointerLockControls actually
+    // rotates for looking up/down), clamped to +/-90°.
+    let lookTouchId = null;
+    let lookLastX = 0, lookLastY = 0;
+    const TOUCH_LOOK_SENSITIVITY = 0.0028;
+
+    touchLookZone.addEventListener('touchstart', (e) => {
+        if (!touchControlsActive() || lookTouchId !== null) return;
+        const t = e.changedTouches[0];
+        lookTouchId = t.identifier;
+        lookLastX = t.clientX; lookLastY = t.clientY;
+        e.preventDefault();
+    }, { passive: false });
+
+    touchLookZone.addEventListener('touchmove', (e) => {
+        if (!touchControlsActive()) { endLookTouch({changedTouches:[{identifier:lookTouchId}]}); return; }
+        for (const t of e.changedTouches) {
+            if (t.identifier !== lookTouchId) continue;
+            const dx = t.clientX - lookLastX, dy = t.clientY - lookLastY;
+            lookLastX = t.clientX; lookLastY = t.clientY;
+            const pitchObj = camera.parent;
+            controls.getObject().rotation.y -= dx * TOUCH_LOOK_SENSITIVITY;
+            pitchObj.rotation.x -= dy * TOUCH_LOOK_SENSITIVITY;
+            pitchObj.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitchObj.rotation.x));
+            break;
+        }
+        e.preventDefault();
+    }, { passive: false });
+
+    function endLookTouch(e) {
+        for (const t of e.changedTouches) {
+            if (t.identifier === lookTouchId) { lookTouchId = null; break; }
+        }
+    }
+    touchLookZone.addEventListener('touchend', endLookTouch, { passive: false });
+    touchLookZone.addEventListener('touchcancel', endLookTouch, { passive: false });
+
+    // ── Action buttons ────────────────────────────────────────────────────
+    function bindHoldButton(el, onStart, onEnd) {
+        el.addEventListener('touchstart', (e) => {
+            e.preventDefault(); e.stopPropagation();
+            el.classList.add('pressed');
+            if (touchControlsActive()) onStart();
+        }, { passive: false });
+        const release = (e) => {
+            e.preventDefault(); e.stopPropagation();
+            el.classList.remove('pressed');
+            onEnd();
+        };
+        el.addEventListener('touchend', release, { passive: false });
+        el.addEventListener('touchcancel', release, { passive: false });
+    }
+
+    // Jump: held down, auto-repeats on landing (like holding a keyboard key).
+    bindHoldButton(touchBtnJump, () => { touchJumpHeld = true; }, () => { touchJumpHeld = false; });
+    // Sneak: held down, same as holding "Z" on desktop.
+    bindHoldButton(touchBtnSneak, () => { isCrouching = true; }, () => { isCrouching = false; });
+    // Sprint: held down, same as holding Shift on desktop.
+    bindHoldButton(touchBtnSprint, () => { isSprinting = true; }, () => { isSprinting = false; });
+    // Mine/Attack: held down mines/attacks continuously, exactly like holding
+    // the left mouse button. Releasing cancels any in-progress mining.
+    bindHoldButton(touchBtnMine, () => { performAttackOrMine(); }, () => { resetMiningState(); });
+    // Use/Place: a single tap, exactly like a right-click.
+    touchBtnUse.addEventListener('touchstart', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        touchBtnUse.classList.add('pressed');
+        if (touchControlsActive()) performUseOrPlace();
+    }, { passive: false });
+    const releaseUseBtn = (e) => { e.preventDefault(); e.stopPropagation(); touchBtnUse.classList.remove('pressed'); };
+    touchBtnUse.addEventListener('touchend', releaseUseBtn, { passive: false });
+    touchBtnUse.addEventListener('touchcancel', releaseUseBtn, { passive: false });
+
+    // If touch controls ever get hidden/disabled mid-press (menu opens, chat
+    // opens, setting toggled off), release everything so nothing gets stuck on.
+    function releaseAllTouchInput() {
+        joyTouchId = null; lookTouchId = null;
+        resetJoystick();
+        touchJumpHeld = false; isSprinting = false;
+        resetMiningState();
+    }
+
+    // Block the page from scrolling/zooming/selecting text while playing —
+    // touch-action:none on the zones/buttons above covers most of it, this
+    // is a backstop for anywhere else a stray touch could land.
+    document.addEventListener('touchmove', (e) => { if (gameStarted) e.preventDefault(); }, { passive: false });
+
+
     loadSettings();
     applySettings();
     updateTitleSaveInfo();
